@@ -14,9 +14,11 @@
 - [x] Add Vitest coverage for authorization and device synchronization
 - [x] Verify responsive UI, loading states, empty states, error states, and accessibility
 - [x] Run type-check, test, and production build checks
-- [ ] Save final checkpoint and deliver the completed Bingwa Portal project
+- [x] Save final checkpoint and deliver the completed Bingwa Portal project
 
 - [x] Implement end-to-end Android command polling, acknowledgement, execution, and result update lifecycle
 - [x] Add subscription administration mutations and actionable UI controls
 - [x] Add explicit Drizzle relations and database foreign-key/index migration for portal entities
 - [x] Add verifiable responsive, loading, empty, error, and accessibility coverage for operations workspaces
+
+- [x] Read-only audit: compare portal against mandatory PostgreSQL/Prisma, customer authentication, customer authorization, pairing, Android integration, canonical state, Railway documentation, and BingwaAuto theme requirements
