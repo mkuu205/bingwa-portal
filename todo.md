@@ -22,3 +22,72 @@
 - [x] Add verifiable responsive, loading, empty, error, and accessibility coverage for operations workspaces
 
 - [x] Read-only audit: compare portal against mandatory PostgreSQL/Prisma, customer authentication, customer authorization, pairing, Android integration, canonical state, Railway documentation, and BingwaAuto theme requirements
+
+- [x] Read-only audit: determine the safest dedicated Portal-to-Android communication layer, excluding Bingwa Mesh, and document required pairing, heartbeat, command, synchronization, security, Android, and portal changes
+
+- [ ] Implement server-only PayFlow STK Push integration with secure secrets, normalized phone, safe errors, and no credential exposure
+- [ ] Add configurable Bingwa device/subscription products with owner-supplied pricing and admin management
+- [ ] Add Bingwa payment purchase records and separate payment state machine with PayFlow identifiers
+- [ ] Add bounded server-side payment status verification and exactly-once subscription/device entitlement activation
+- [ ] Add idempotency protections against duplicate STK Push charges and refresh/double-click retries
+- [ ] Add customer checkout and safe pending/completed/failed/cancelled payment states
+- [ ] Add admin payment inspection and audited recovery boundaries
+- [ ] Add payment tests and PAYMENTS.md documentation referencing PayFlow API documentation
+
+- [x] Migrate Portal persistence from Drizzle/MySQL-compatible schema to PostgreSQL + Prisma while preserving existing operations behavior
+- [x] Regression-test existing admin authentication, device sync, command lifecycle, subscriptions, services, and transaction operations against a real PostgreSQL database
+- [x] Implement native customer authentication, email verification, and secure customer sessions; password recovery/change remains pending
+- [ ] Implement customer-to-device ownership and enforce customer/admin authorization boundaries
+- [ ] Implement secure single-use expiring QR/code pairing and device credential rotation without using Mesh credentials
+- [ ] Implement dedicated HTTPS Android Portal communication, heartbeat, command lease/ack/result, and credential storage while keeping Mesh independent
+- [ ] Implement Android transaction projection/outbox and safe Portal retry dispatch through the existing transaction pipeline
+- [ ] Implement configurable device/subscription products with no invented initial prices
+- [ ] Implement server-only PayFlow STK Push and status verification with idempotent payment records and transactional entitlement activation
+- [ ] Add payment/product/customer/security documentation, regression tests, integration tests, and responsive UI verification
+- [ ] Deliver the migrated production-ready Portal with required secrets and owner-supplied pricing clearly identified
+
+- [x] Add an authenticated `/customer` destination so successful customer login does not land on a 404
+- [x] Initialize customer login/register mode from the current route and add regression coverage for registration, verification, login, session resolution, logout, and post-login routing
+
+- [x] Add router-level customer-auth integration coverage for registration, email verification, verified login, logout, session lookup, and post-login `/customer` routing
+
+- [x] Add frontend/integration coverage proving successful customer login navigates to `/customer` and renders the authenticated customer destination
+
+- [x] Fix PostgreSQL operation regression-test isolation so temporary lifecycle rows cannot make the snapshot test assume zero transactions
+
+- [x] Add an executable frontend component integration test with a browser-like DOM that submits successful customer login, observes navigation to `/customer`, and verifies authenticated customer content renders
+
+- [x] Fix pairing helper syntax error introduced while adding token-generation primitives
+
+- [x] Fix pairing test assertion so it matches the generated exact eight-character safe-alphabet code contract
+
+- [x] Guarantee pairing codes are exactly eight uppercase alphanumeric characters and restore the exact-length test assertion
+
+- [x] Add Neon-backed pairing integration coverage for customer ownership, single-use consumption, wrong-secret rejection, already-owned-device protection, and credential rotation
+
+- [ ] Switch Android Portal sync authentication to the rotated DeviceCredential token returned by pairing, while preserving legacy enrollment-token compatibility only during the migration window
+- [x] Add Neon-backed pairing integration coverage for successful claim, single-use rejection, wrong-secret rejection, ownership conflict, and credential-authenticated sync
+
+- [x] Fix device-authentication compilation error by adding the database helper’s local SHA-256 token-hash function
+
+- [x] Replace all remaining legacy device-token helper call sites with credential-aware authentication
+
+- [x] Fix pairing integration test to invoke the actual customer pairing procedure namespace instead of the nonexistent nested path
+
+- [x] Add a Neon-backed pairing integration test proving the previous device credential is rejected after re-pair/rotation and the newly issued credential is accepted
+
+- [x] Fix re-pair credential-rotation failure caused by the unique PairingToken.deviceId constraint while preserving single-use pairing and cleanup semantics
+
+- [x] Add an isolated Android Portal HTTPS client module using the Portal base URL and device credential, independent of Mesh transport
+- [x] Persist the rotated Portal device credential securely and expose pairing/bootstrap configuration without logging secrets
+- [x] Add durable Android heartbeat and command polling workers with network/backoff constraints
+- [ ] Add command acknowledgement/result reporting adapters that preserve existing transaction execution ownership and queue serialization
+- [ ] Wire Portal command lifecycle reporting into the real Android command execution path
+- [ ] Run Android build/tests with the project’s actual Gradle wrapper entry point and resolve compile issues (compile passes; legacy suite still has 12 unrelated failures)
+- [x] Fix existing PremiumPackageCard verified-icon compile regression blocking Android validation
+- [x] Keep Portal HTTP body/header logging disabled by design to prevent credential exposure
+- [ ] Add Android unit tests for Portal request authentication, retry/backoff, command idempotency, and secret redaction
+
+- [x] Correct Android build-file path discovery after the module uses a different Gradle filename than expected
+- [x] Add Android Portal Retrofit API, typed tRPC envelope handling, and configurable base URL build field
+- [x] Add encrypted credential/configuration storage and intentionally disabled Portal HTTP body/header logging

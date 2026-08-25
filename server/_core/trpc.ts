@@ -27,6 +27,21 @@ const requireUser = t.middleware(async opts => {
 
 export const protectedProcedure = t.procedure.use(requireUser);
 
+const requireCustomer = t.middleware(async opts => {
+  const { ctx, next } = opts;
+  if (!ctx.customer || ctx.customer.status !== "ACTIVE") {
+    throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+  }
+  return next({
+    ctx: {
+      ...ctx,
+      customer: ctx.customer,
+    },
+  });
+});
+
+export const customerProcedure = t.procedure.use(requireCustomer);
+
 export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;

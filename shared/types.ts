@@ -1,7 +1,19 @@
-/**
- * Unified type exports
- * Import shared types from this single entry point.
- */
-
-export type * from "../drizzle/schema";
+export type {
+  AuditLog,
+  BingwaPayment,
+  Command,
+  Customer,
+  CustomerSession,
+  Device,
+  DeviceCredential,
+  EmailVerificationToken,
+  EntitlementGrant,
+  PairingToken,
+  Product,
+  Service,
+  Subscription,
+  SyncEvent,
+  Transaction,
+  User,
+} from "@prisma/client";
 export * from "./_core/errors";
