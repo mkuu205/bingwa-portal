@@ -208,3 +208,13 @@
 - [x] Add focused runtime/healthcheck regression coverage
 - [x] Run pnpm check, pnpm test, pnpm build, production start, and GET /healthz verification
 - [x] Save a new checkpoint with exact Railway root cause and files changed
+
+## Railway deployed-runtime crash continuation
+
+- [x] Trace ERR_INVALID_ARG_TYPE path.join failure to the production static-serving path
+- [x] Trace missing OAUTH_SERVER_URL startup behavior and define safe optional OAuth-config handling
+- [x] Ensure production can expose /healthz without masking OAuth configuration warnings
+- [x] Add regression coverage for production static-path loading and liveness without OAuth/database credentials
+- [x] Run pnpm check, pnpm test, pnpm build, production start, and GET /healthz verification
+- [x] Save a new checkpoint with the exact deployed-runtime root cause
+- [x] Remove stray test-harness marker from vite.production.test.ts and rerun Railway validation
