@@ -131,3 +131,21 @@
 - [x] Make PostgreSQL integration tests skip cleanly when DATABASE_URL is not configured
 - [x] Restore BingwaAuto neon-green theme tokens without redesigning the UI
 - [x] Run pnpm check, pnpm test, and pnpm build, then perform final read-only verification
+
+## Attachment-approved continuation
+
+- [x] Verify customer administration UI and backend authorization end to end with safe local/test data
+- [x] Verify audit administration UI and backend authorization end to end with safe local/test data
+- [x] Keep PayFlow behind a disabled server-side feature boundary without calling provider endpoints
+- [x] Complete Android Portal contract validation from the supplied source without changing the Android transaction, USSD, SMS, queue, or canonical-finalization engines
+- [x] Add safe database-independent tests for remaining Portal boundaries
+- [x] Complete Railway deployment documentation and secret/configuration guidance
+- [x] Complete responsive visual verification for authenticated Portal workspaces
+- [x] Perform final source/archive secret scan and record remaining runtime-only blockers
+
+## Verification follow-up
+
+- [x] Add explicit Vitest/integration coverage for admin customer workspace authorization, loading, empty, and populated states using safe local/test data
+- [x] Add explicit Vitest/integration coverage for admin audit-log workspace authorization, loading, empty, and paginated populated states using safe local/test data
+- [x] Add additional database-independent tests for remaining Portal boundaries and reference them in the passing test run
+- [ ] Capture responsive verification for authenticated admin workspaces at desktop and mobile widths and document checked views (blocked by unavailable authenticated session)
