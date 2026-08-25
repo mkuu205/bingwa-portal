@@ -39,7 +39,7 @@
 - [x] Implement native customer authentication, email verification, and secure customer sessions; password recovery/change remains pending
 - [x] Implement customer-to-device ownership and enforce customer/admin authorization boundaries
 - [x] Implement secure single-use expiring QR/code pairing and device credential rotation without using Mesh credentials
-- [ ] Implement dedicated HTTPS Android Portal communication, heartbeat, command lease/ack/result, and credential storage while keeping Mesh independent
+- [ ] Implement dedicated HTTPS Android Portal communication, heartbeat, command lease/ack/result, and credential storage while keeping Mesh independent (transport and queue seam complete; device end-to-end verification pending)
 - [ ] Implement Android transaction projection/outbox and safe Portal retry dispatch through the existing transaction pipeline
 - [x] Implement configurable device/subscription products with no invented initial prices
 - [ ] Implement server-only PayFlow STK Push and status verification with idempotent payment records and transactional entitlement activation (deferred: user will configure env later)
@@ -48,9 +48,9 @@
 - [x] Add Portal product UI with listing, create, update, archive, loading, empty, and error states
 - [x] Add product authorization, persistence, and price-configuration integration coverage
 - [x] Add full product edit UI and mutations for all owner-supplied product fields with save states
-- [ ] Add per-product edit success/pending/error feedback and field-level validation
-- [ ] Mirror positive-integer/null duration and device-limit validation in the product editor
-- [ ] Add focused UI contract coverage for invalid product edit values
+- [x] Add per-product edit success/pending/error feedback and field-level validation
+- [x] Mirror positive-integer/null duration and device-limit validation in the product editor
+- [x] Add focused UI contract coverage for invalid product edit values
 - [x] Add Prisma/PostgreSQL product integration coverage for admin authorization and persistence round-trips
 - [x] Implement safe product delete behavior or document archive-only lifecycle when dependent records exist
 - [ ] Deliver the migrated production-ready Portal with required secrets and owner-supplied pricing clearly identified
@@ -90,12 +90,21 @@
 - [x] Add an isolated Android Portal HTTPS client module using the Portal base URL and device credential, independent of Mesh transport
 - [x] Persist the rotated Portal device credential securely and expose pairing/bootstrap configuration without logging secrets
 - [x] Add durable Android heartbeat and command polling workers with network/backoff constraints
-- [ ] Add command acknowledgement/result reporting adapters that preserve existing transaction execution ownership and queue serialization
-- [ ] Wire Portal command lifecycle reporting into the real Android command execution path
-- [ ] Run Android build/tests with the project’s actual Gradle wrapper entry point and resolve compile issues (compile passes; legacy suite still has 12 unrelated failures)
+- [x] Add command acknowledgement/result reporting adapters that preserve existing transaction execution ownership and queue serialization
+- [x] Add a Portal command-dispatch adapter that delegates only to an existing Android executor and reports unsupported commands safely
+- [ ] Wire Portal command lifecycle reporting into the real Android command execution path (queue delegation is wired; device runtime verification remains)
+- [x] Bind Portal command dispatch to an existing Android execution owner for supported command types
+- [x] Extract a testable Portal queue gateway backed by the existing PaymentQueueService
+- [x] Add Hilt binding for PaymentQueuePortalGateway after the application graph reports a missing PortalQueueGateway binding
+- [x] Fix Portal dispatcher import after KSP cannot resolve the actual PaymentQueueService package
+- [x] Run Android compile with the project’s actual Gradle wrapper entry point (compile passes)
+- [x] Run focused Android Portal tests (dispatcher and projection tests pass)
+- [ ] Run the complete Android suite and resolve or explicitly isolate the remaining legacy failures
 - [x] Fix existing PremiumPackageCard verified-icon compile regression blocking Android validation
 - [x] Keep Portal HTTP body/header logging disabled by design to prevent credential exposure
 - [ ] Add Android unit tests for Portal request authentication, retry/backoff, command idempotency, and secret redaction
+- [ ] Add Android integration coverage for supported Portal commands proving ACK, PaymentQueueService delegation, and terminal reporting
+- [x] Fix PortalCommandDispatcherTest Kotlin assertion syntax so focused Android tests compile
 
 - [x] Correct Android build-file path discovery after the module uses a different Gradle filename than expected
 - [x] Add Android Portal Retrofit API, typed tRPC envelope handling, and configurable base URL build field
