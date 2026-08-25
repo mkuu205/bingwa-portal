@@ -238,3 +238,13 @@
 - [x] Add or repair regression tests proving production auth does not require OAUTH_SERVER_URL
 - [x] Run pnpm check, pnpm test, pnpm build, and production route/health verification
 - [x] Save a checkpoint for the native-auth production correction
+
+
+## Production analytics endpoint correction
+
+- [x] Audit how VITE_ANALYTICS_ENDPOINT is injected and how the Umami script URL is constructed
+- [x] Prevent literal placeholder analytics paths from reaching production
+- [x] Preserve analytics configuration as optional and keep authentication/API/healthcheck behavior unchanged
+- [x] Add regression coverage for malformed and valid analytics endpoint configuration
+- [x] Run pnpm check, pnpm test, pnpm build, and verify the production bundle contains no literal placeholder URL
+- [x] Save a checkpoint for the analytics endpoint correction

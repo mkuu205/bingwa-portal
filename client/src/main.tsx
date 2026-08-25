@@ -6,9 +6,11 @@ import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
+import { loadAnalytics } from "./lib/analytics";
 import "./index.css";
 
 const queryClient = new QueryClient();
+loadAnalytics();
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
