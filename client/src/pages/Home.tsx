@@ -1,33 +1,136 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+import { useMemo, useState } from "react";
+import { useLocation } from "wouter";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowUpRight,
+  CheckCircle2,
+  ChevronRight,
+  CircleDollarSign,
+  Clock3,
+  Command,
+  Cpu,
+  Database,
+  Laptop2,
+  Loader2,
+  RefreshCw,
+  Search,
+  Server,
+  ShieldCheck,
+  Smartphone,
+  Wifi,
+  XCircle,
+} from "lucide-react";
+import DashboardLayout from "@/components/DashboardLayout";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { trpc } from "@/lib/trpc";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
-export default function Home() {
-  // The useAuth hook provides authentication state.
-  // To implement login/logout, call logout(), or start login from an event
-  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
-  // startLogin() during render (no href={startLogin()}) — it mints a one-time
-  // nonce cookie and must run only at the moment of navigation.
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
+const formatDate = (value: unknown) => {
+  if (!value) return "—";
+  const date = new Date(value as string | number | Date);
+  return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+};
 
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+const statusTone = (status?: string | null) => {
+  if (["COMPLETED", "VERIFIED", "online", "idle", "OPERATIONAL", "SUCCEEDED", "ACTIVE"].includes(status ?? "")) return "border-emerald-400/20 bg-emerald-400/10 text-emerald-300";
+  if (["FAILED", "OUTAGE", "blocked", "CANCELLED"].includes(status ?? "")) return "border-rose-400/20 bg-rose-400/10 text-rose-300";
+  if (["DEGRADED", "PAST_DUE", "PROCESSING", "EXECUTING", "DELIVERED"].includes(status ?? "")) return "border-amber-400/20 bg-amber-400/10 text-amber-300";
+  return "border-slate-500/20 bg-slate-500/10 text-slate-300";
+};
 
+function MetricCard({ label, value, detail, icon: Icon, accent }: { label: string; value: number | string; detail: string; icon: typeof Activity; accent: string }) {
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
-    </div>
+    <Card className="border-white/[0.08] bg-white/[0.035] shadow-[0_18px_60px_-35px_rgba(0,0,0,.8)]">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-500">{label}</p>
+            <p className="mt-3 text-3xl font-semibold tracking-tight text-white">{value}</p>
+            <p className="mt-1 text-xs text-slate-500">{detail}</p>
+          </div>
+          <div className={`rounded-xl border p-2.5 ${accent}`}><Icon className="h-4 w-4" /></div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
+
+function EmptyState({ icon: Icon, title, body }: { icon: typeof Database; title: string; body: string }) {
+  return <div className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.1] bg-black/10 px-6 text-center"><Icon className="mb-3 h-6 w-6 text-slate-600" /><p className="text-sm font-medium text-slate-300">{title}</p><p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">{body}</p></div>;
+}
+
+function Overview({ data, isLoading, error }: { data: any; isLoading: boolean; error: unknown }) {
+  const counts = data?.counts;
+  const recentTransactions = data?.transactions?.slice(0, 6) ?? [];
+  const recentDevices = data?.devices?.slice(0, 4) ?? [];
+  return <div className="space-y-6">
+    <section className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-[#13284a] via-[#0e1b35] to-[#09111f] p-6 shadow-[0_24px_90px_-35px_rgba(44,128,255,.5)] md:p-8">
+      <div className="absolute -right-24 -top-28 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
+      <div className="relative flex flex-col justify-between gap-6 md:flex-row md:items-end">
+        <div className="max-w-2xl"><div className="mb-4 flex items-center gap-2 text-xs font-medium uppercase tracking-[0.2em] text-cyan-300"><span className="h-1.5 w-1.5 rounded-full bg-cyan-300 shadow-[0_0_14px_#67e8f9]" /> Bingwa operations / live control plane</div><h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">One clear view of every device, payment, and command.</h1><p className="mt-3 max-w-xl text-sm leading-6 text-slate-300">Coordinate the Android fleet behind Bingwa with secure device identity, observable USSD execution, and an operational record that stays easy to scan.</p></div>
+        <div className="flex items-center gap-3 text-xs text-slate-400"><div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/10 px-3 py-2"><ShieldCheck className="h-4 w-4 text-emerald-300" /> Admin control enabled</div></div>
+      </div>
+    </section>
+    {error ? <div className="flex items-center gap-3 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200"><AlertTriangle className="h-4 w-4" /> This workspace requires an administrator account or the operations database is unavailable.</div> : null}
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5"><MetricCard label="Android fleet" value={isLoading ? "—" : counts?.devices ?? 0} detail={`${counts?.onlineDevices ?? 0} online now`} icon={Smartphone} accent="border-cyan-400/20 bg-cyan-400/10 text-cyan-300" /><MetricCard label="Open payments" value={isLoading ? "—" : counts?.pendingTransactions ?? 0} detail="Awaiting execution or review" icon={CircleDollarSign} accent="border-violet-400/20 bg-violet-400/10 text-violet-300" /><MetricCard label="Failed payments" value={isLoading ? "—" : counts?.failedTransactions ?? 0} detail="Requires operator attention" icon={XCircle} accent="border-rose-400/20 bg-rose-400/10 text-rose-300" /><MetricCard label="Command queue" value={isLoading ? "—" : counts?.queuedCommands ?? 0} detail="Queued or in delivery" icon={Command} accent="border-amber-400/20 bg-amber-400/10 text-amber-300" /><MetricCard label="Sync posture" value={isLoading ? "—" : "Ready"} detail="Device heartbeat contract" icon={Wifi} accent="border-emerald-400/20 bg-emerald-400/10 text-emerald-300" /></div>
+    <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]">
+      <Card className="border-white/[0.08] bg-white/[0.035]"><CardHeader className="flex-row items-center justify-between border-b border-white/[0.07] px-5 py-4"><div><CardTitle className="text-base text-white">Payment activity</CardTitle><p className="mt-1 text-xs text-slate-500">Latest records synchronized from Android devices</p></div><CircleDollarSign className="h-4 w-4 text-slate-500" /></CardHeader><CardContent className="p-0">{recentTransactions.length ? <div className="divide-y divide-white/[0.06]">{recentTransactions.map((tx: any) => <div key={tx.id} className="flex items-center justify-between gap-4 px-5 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-200">{tx.customerName || tx.phoneNumber}</p><p className="mt-1 truncate text-xs text-slate-500">{tx.packageName} · {tx.paymentMethod || "Payment"}</p></div><div className="text-right"><p className="text-sm font-semibold text-white">KES {tx.amount}</p><Badge variant="outline" className={`mt-1 ${statusTone(tx.status)}`}>{tx.status}</Badge></div></div>)}</div> : <div className="p-5"><EmptyState icon={CircleDollarSign} title="No payment records yet" body="Synchronized transactions will appear here as enrolled Android devices report activity." /></div>}</CardContent></Card>
+      <Card className="border-white/[0.08] bg-white/[0.035]"><CardHeader className="border-b border-white/[0.07] px-5 py-4"><CardTitle className="text-base text-white">Fleet pulse</CardTitle><p className="mt-1 text-xs text-slate-500">Android lines reporting into Bingwa</p></CardHeader><CardContent className="p-5">{recentDevices.length ? <div className="space-y-4">{recentDevices.map((device: any) => <div key={device.id} className="flex items-center gap-3"><div className="rounded-xl border border-white/10 bg-white/[0.04] p-2"><Smartphone className="h-4 w-4 text-cyan-300" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm text-slate-200">{device.deviceName}</p><p className="truncate text-xs text-slate-500">{device.model || "Android device"} · {device.appVersion || "version unknown"}</p></div><span className={`h-2 w-2 rounded-full ${device.status === "online" || device.status === "idle" ? "bg-emerald-300 shadow-[0_0_12px_#6ee7b7]" : "bg-slate-600"}`} /></div>)}</div> : <EmptyState icon={Smartphone} title="No devices enrolled" body="Enroll an Android line to see heartbeats, SIM posture, and app versions here." />}</CardContent></Card>
+    </div>
+  </div>;
+}
+
+function Devices({ data }: { data: any }) {
+  const devices = data?.devices ?? [];
+  return <Workspace title="Device registry" eyebrow="Android fleet" description="Enrollment, SIM posture, heartbeat freshness, and app-version visibility for every Bingwa automation line." action={<Button className="bg-cyan-300 text-slate-950 hover:bg-cyan-200"><Smartphone className="h-4 w-4" /> Enroll device</Button>}>{devices.length ? <div className="grid gap-4 lg:grid-cols-2">{devices.map((device: any) => <Card key={device.id} className="border-white/[0.08] bg-white/[0.035]"><CardContent className="p-5"><div className="flex items-start justify-between"><div className="flex items-center gap-3"><div className="rounded-xl bg-cyan-400/10 p-3 text-cyan-300"><Smartphone className="h-5 w-5" /></div><div><p className="font-medium text-white">{device.deviceName}</p><p className="mt-1 text-xs text-slate-500">{device.deviceId}</p></div></div><Badge variant="outline" className={statusTone(device.status)}>{device.status}</Badge></div><div className="mt-5 grid grid-cols-2 gap-3 text-xs"><Info label="Model" value={device.model || "—"} /><Info label="SIM / carrier" value={`${device.simSlot ?? "—"} · ${device.carrierName || "Unknown"}`} /><Info label="App version" value={device.appVersion || "—"} /><Info label="Last heartbeat" value={formatDate(device.lastHeartbeatAt)} /></div><div className="mt-4 flex items-center gap-2 text-xs text-slate-500"><span className={`h-1.5 w-1.5 rounded-full ${device.automationSimConfigured ? "bg-emerald-300" : "bg-rose-300"}`} /> Automation SIM {device.automationSimConfigured ? "configured" : "needs configuration"}</div></CardContent></Card>)}</div> : <EmptyState icon={Smartphone} title="Device registry is empty" body="No Android device has been enrolled into this portal yet. Enrollment tokens are generated server-side for the device sync contract." />}</Workspace>;
+}
+
+function Transactions({ data }: { data: any }) {
+  const [search, setSearch] = useState("");
+  const input = useMemo(() => ({ query: search || undefined }), [search]);
+  const query = trpc.operations.transactions.useQuery(input, { enabled: true });
+  const rows = query.data ?? data?.transactions ?? [];
+  return <Workspace title="Transaction history" eyebrow="Payments & verification" description="Search the synchronized payment ledger by customer, phone, package, receipt, or status."><div className="mb-4 flex gap-3"><div className="relative max-w-xl flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search phone, package, receipt, or status" className="border-white/10 bg-white/[0.04] pl-10 text-slate-200 placeholder:text-slate-600" /></div><Button variant="outline" onClick={() => query.refetch()}><RefreshCw className="h-4 w-4" /> Refresh</Button></div><Card className="overflow-hidden border-white/[0.08] bg-white/[0.035]"><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="border-b border-white/[0.07] text-[11px] uppercase tracking-[0.16em] text-slate-500"><tr><th className="px-5 py-4">Customer / phone</th><th className="px-5 py-4">Package</th><th className="px-5 py-4">Amount</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Verification</th><th className="px-5 py-4">Created</th></tr></thead><tbody className="divide-y divide-white/[0.06]">{rows.map((tx: any) => <tr key={tx.id} className="hover:bg-white/[0.025]"><td className="px-5 py-4"><p className="font-medium text-slate-200">{tx.customerName || "Customer"}</p><p className="mt-1 text-xs text-slate-500">{tx.phoneNumber}</p></td><td className="px-5 py-4 text-slate-300">{tx.packageName}</td><td className="px-5 py-4 font-medium text-white">KES {tx.amount}</td><td className="px-5 py-4"><Badge variant="outline" className={statusTone(tx.status)}>{tx.status}</Badge></td><td className="px-5 py-4"><Badge variant="outline" className={statusTone(tx.verificationStatus)}>{tx.verificationStatus || "—"}</Badge></td><td className="px-5 py-4 text-xs text-slate-500">{formatDate(tx.createdAt)}</td></tr>)} </tbody></table></div>{!rows.length ? <div className="p-5"><EmptyState icon={CircleDollarSign} title="No transactions found" body="Try another search or wait for the Android sync contract to deliver the first record." /></div> : null}</Card></Workspace>;
+}
+
+function Commands({ data }: { data: any }) {
+  const rows = data?.commands ?? [];
+  const utils = trpc.useUtils();
+  const [deviceId, setDeviceId] = useState("");
+  const [commandType, setCommandType] = useState("SYNC_STATUS");
+  const enqueue = trpc.operations.enqueueCommand.useMutation({ onSuccess: () => { setDeviceId(""); utils.operations.snapshot.invalidate(); } });
+  const submit = () => { const id = Number(deviceId); if (Number.isInteger(id) && id > 0) enqueue.mutate({ deviceId: id, commandType }); };
+  return <Workspace title="Command center" eyebrow="Remote operations" description="Queue supported Android actions and track delivery, acknowledgement, execution, and result state.">
+    <Card className="border-cyan-400/15 bg-cyan-400/[0.06]">
+      <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-end">
+        <div className="flex-1"><label className="text-[10px] uppercase tracking-[0.14em] text-cyan-200">Target Android device ID</label><Input value={deviceId} onChange={e => setDeviceId(e.target.value)} inputMode="numeric" placeholder="e.g. 12" className="mt-2 border-cyan-400/20 bg-black/20 text-slate-100" /></div>
+        <div className="flex-1"><label className="text-[10px] uppercase tracking-[0.14em] text-cyan-200">Supported action</label><Input value={commandType} onChange={e => setCommandType(e.target.value)} placeholder="SYNC_STATUS" className="mt-2 border-cyan-400/20 bg-black/20 text-slate-100" /></div>
+        <Button onClick={submit} disabled={enqueue.isPending || !deviceId || !commandType} className="bg-cyan-300 text-slate-950 hover:bg-cyan-200">{enqueue.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Command className="h-4 w-4" />} Queue command</Button>
+      </CardContent>
+      {enqueue.error ? <p className="px-5 pb-4 text-xs text-rose-300">Unable to queue command. Confirm your administrator access and device ID.</p> : enqueue.isSuccess ? <p className="px-5 pb-4 text-xs text-emerald-300">Command queued and ready for the device sync poll.</p> : null}
+    </Card>
+    <div className="my-5 grid gap-4 md:grid-cols-3"><Card className="border-cyan-400/15 bg-cyan-400/[0.06]"><CardContent className="p-5"><Command className="h-5 w-5 text-cyan-300" /><p className="mt-4 text-sm font-medium text-white">Safe by design</p><p className="mt-1 text-xs leading-5 text-slate-400">Commands are persisted with device ownership and an explicit lifecycle.</p></CardContent></Card><Card className="border-white/[0.08] bg-white/[0.035]"><CardContent className="p-5"><Clock3 className="h-5 w-5 text-amber-300" /><p className="mt-4 text-sm font-medium text-white">Delivery visibility</p><p className="mt-1 text-xs leading-5 text-slate-400">Observe when a device receives and acknowledges work.</p></CardContent></Card><Card className="border-white/[0.08] bg-white/[0.035]"><CardContent className="p-5"><ShieldCheck className="h-5 w-5 text-emerald-300" /><p className="mt-4 text-sm font-medium text-white">Admin-only actions</p><p className="mt-1 text-xs leading-5 text-slate-400">Only authorized portal operators can enqueue commands.</p></CardContent></Card></div>
+    <Card className="border-white/[0.08] bg-white/[0.035]"><CardHeader className="border-b border-white/[0.07] px-5 py-4"><CardTitle className="text-base text-white">Recent command queue</CardTitle></CardHeader><CardContent className="p-0">{rows.length ? <div className="divide-y divide-white/[0.06]">{rows.map((command: any) => <div key={command.id} className="flex items-center justify-between px-5 py-4"><div><p className="font-medium text-slate-200">{command.commandType}</p><p className="mt-1 text-xs text-slate-500">Device #{command.deviceId} · {formatDate(command.requestedAt)}</p></div><Badge variant="outline" className={statusTone(command.status)}>{command.status}</Badge></div>)}</div> : <div className="p-5"><EmptyState icon={Command} title="Command queue is clear" body="Queued Android configuration and operational commands will be listed here." /></div>}</CardContent></Card>
+  </Workspace>;
+}
+
+function Services({ data }: { data: any }) { const rows = data?.services ?? []; return <Workspace title="Service administration" eyebrow="Platform health" description="Keep a focused view of the services that support payment execution, verification, synchronization, and operator workflows."><div className="grid gap-4 md:grid-cols-2">{rows.length ? rows.map((service: any) => <Card key={service.id} className="border-white/[0.08] bg-white/[0.035]"><CardContent className="flex items-center gap-4 p-5"><div className="rounded-xl border border-white/10 bg-white/[0.04] p-3"><Server className="h-5 w-5 text-cyan-300" /></div><div className="min-w-0 flex-1"><p className="font-medium text-white">{service.serviceName}</p><p className="mt-1 text-xs text-slate-500">{service.description || service.serviceKey}</p></div><Badge variant="outline" className={statusTone(service.status)}>{service.status}</Badge></CardContent></Card>) : <EmptyState icon={Server} title="No service checks configured" body="Service health records will appear once operations monitoring is connected." />}</div></Workspace>; }
+
+function Subscriptions({ data }: { data: any }) {
+  const rows = data?.subscriptions ?? [];
+  const utils = trpc.useUtils();
+  const update = trpc.operations.updateSubscription.useMutation({ onSuccess: () => utils.operations.snapshot.invalidate() });
+  return <Workspace title="Subscriptions" eyebrow="Bingwa services" description="Review store plans, token balances, renewal posture, and service access across the Bingwa network."><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{rows.length ? rows.map((sub: any) => <Card key={sub.id} className="border-white/[0.08] bg-white/[0.035]"><CardContent className="p-5"><div className="flex justify-between gap-3"><div><p className="font-medium text-white">{sub.storeName}</p><p className="mt-1 text-xs text-slate-500">{sub.planName}</p></div><Badge variant="outline" className={statusTone(sub.status)}>{sub.status}</Badge></div><div className="mt-6 flex items-end justify-between"><div><p className="text-2xl font-semibold text-white">{sub.tokenBalance}</p><p className="text-xs text-slate-500">tokens available</p></div><p className="text-right text-xs text-slate-500">Renews<br />{formatDate(sub.renewalAt)}</p></div><div className="mt-5 flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={update.isPending || sub.status === "ACTIVE"} onClick={() => update.mutate({ id: sub.id, status: "ACTIVE" })}>Activate</Button><Button size="sm" variant="outline" disabled={update.isPending || sub.status === "SUSPENDED"} onClick={() => update.mutate({ id: sub.id, status: "SUSPENDED" })}>Suspend</Button><Button size="sm" variant="outline" disabled={update.isPending || sub.status === "CANCELLED"} onClick={() => update.mutate({ id: sub.id, status: "CANCELLED" })}>Cancel</Button></div></CardContent></Card>) : <EmptyState icon={Activity} title="No subscriptions yet" body="Subscription and service records will appear here when stores are connected." />}</div>{update.error ? <p className="mt-4 text-xs text-rose-300">Subscription update failed. Confirm administrator access and try again.</p> : update.isSuccess ? <p className="mt-4 text-xs text-emerald-300">Subscription state updated.</p> : null}</Workspace>;
+}
+
+function Settings() { return <Workspace title="Portal settings" eyebrow="Security & synchronization" description="The portal is designed around a narrow contract: authenticated administrators operate the control plane, while enrolled Android devices synchronize through token-authenticated procedures."><div className="grid gap-5 lg:grid-cols-2"><Card className="border-white/[0.08] bg-white/[0.035]"><CardHeader><CardTitle className="text-base text-white">Android sync contract</CardTitle></CardHeader><CardContent className="space-y-4 text-sm text-slate-400"><div className="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.05] p-4"><p className="font-mono text-xs text-cyan-200">deviceSync.heartbeat</p><p className="mt-2 leading-6">Devices submit identity, SIM, version, heartbeat, and transaction updates with an enrollment token. The server stores an audit event for each accepted heartbeat.</p></div><div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-4 w-4 text-emerald-300" /><p>Portal data procedures are admin-gated; device synchronization validates the device identifier and SHA-256 enrollment-token hash.</p></div></CardContent></Card><Card className="border-white/[0.08] bg-white/[0.035]"><CardHeader><CardTitle className="text-base text-white">Operational boundaries</CardTitle></CardHeader><CardContent className="space-y-3 text-sm text-slate-400"><div className="flex items-center justify-between border-b border-white/[0.06] pb-3"><span>Authentication</span><Badge variant="outline" className="border-emerald-400/20 bg-emerald-400/10 text-emerald-300">Manus OAuth</Badge></div><div className="flex items-center justify-between border-b border-white/[0.06] pb-3"><span>Administrator access</span><Badge variant="outline" className="border-cyan-400/20 bg-cyan-400/10 text-cyan-300">Role aware</Badge></div><div className="flex items-center justify-between"><span>Raw device credentials</span><Badge variant="outline" className="border-amber-400/20 bg-amber-400/10 text-amber-300">Hashed</Badge></div></CardContent></Card></div></Workspace>; }
+
+function Info({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3"><p className="text-[10px] uppercase tracking-[0.14em] text-slate-600">{label}</p><p className="mt-1 truncate text-xs text-slate-300">{value}</p></div>; }
+function Workspace({ title, eyebrow, description, action, children }: { title: string; eyebrow: string; description: string; action?: React.ReactNode; children: React.ReactNode }) { return <div className="space-y-6"><div className="flex flex-col justify-between gap-4 md:flex-row md:items-end"><div><p className="text-[11px] font-medium uppercase tracking-[0.2em] text-cyan-300">{eyebrow}</p><h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">{title}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">{description}</p></div>{action}</div>{children}</div>; }
+
+function PortalContent() { const [location] = useLocation(); const view = new URLSearchParams(location.split("?")[1] || "").get("view") || "overview"; const snapshot = trpc.operations.snapshot.useQuery(); const isLoading = snapshot.isLoading; const data = snapshot.data; const page = view === "devices" ? <Devices data={data} /> : view === "transactions" ? <Transactions data={data} /> : view === "commands" ? <Commands data={data} /> : view === "services" ? <Services data={data} /> : view === "subscriptions" ? <Subscriptions data={data} /> : view === "settings" ? <Settings /> : <Overview data={data} isLoading={isLoading} error={snapshot.error} />; return <DashboardLayout><div className="mx-auto max-w-[1440px]">{page}</div></DashboardLayout>; }
+
+export default function Home() { return <PortalContent />; }
