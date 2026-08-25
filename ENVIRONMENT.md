@@ -20,7 +20,7 @@ SMTP variables are optional until customer email delivery is configured. PayFlow
 
 ## Railway
 
-The repository includes `railway.toml`. Production Portal: `https://portal.bingwasokoni.top`. Set `APP_URL` to that exact origin in Railway Variables. Railway should run the Prisma migration command before starting the server, provide a pooled TLS PostgreSQL `DATABASE_URL`, and expose `/healthz` for health checks. The service must terminate startup in production when the database URL is not PostgreSQL/TLS/pool configured. Development and test execution must not fail solely because these production-only values are absent.
+The repository includes `railway.toml`. Production Portal: `https://portal.bingwasokoni.top`. Set `APP_URL` to that exact origin in Railway Variables. Run `pnpm db:deploy` as an explicit migration operation after a pooled TLS PostgreSQL `DATABASE_URL` is configured, then start the web process with `pnpm start`. The process-only `/healthz` endpoint is available independently of database readiness; `/readyz` reports PostgreSQL readiness. The service must reject an invalid production database URL when database-backed operation is configured. Development and test execution must not fail solely because these production-only values are absent.
 
 ## PayFlow gate
 

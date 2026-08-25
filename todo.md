@@ -218,3 +218,12 @@
 - [x] Run pnpm check, pnpm test, pnpm build, production start, and GET /healthz verification
 - [x] Save a new checkpoint with the exact deployed-runtime root cause
 - [x] Remove stray test-harness marker from vite.production.test.ts and rerun Railway validation
+
+## Railway OAuth startup continuation
+
+- [x] Remove the legacy OAuth startup error for native-auth production when OAUTH_SERVER_URL is absent
+- [x] Preserve process-only /healthz and separate database readiness while keeping missing DATABASE_URL explicit
+- [x] Reconcile Railway migration/start commands with healthcheck availability and no-credential staging
+- [x] Add regression coverage for no-OAUTH startup, no-secret logging, PORT binding, and APP_URL production behavior
+- [x] Run pnpm check, pnpm test, pnpm build, pnpm start, and GET /healthz verification
+- [x] Save a new checkpoint with the exact OAuth/runtime root cause

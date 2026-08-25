@@ -9,9 +9,10 @@ Run the portal with Node.js 22 or later and PostgreSQL 14 or later. The only pro
 For Railway, create one web service and attach a PostgreSQL service. Production Portal: `https://portal.bingwasokoni.top`. Configure `APP_URL` to that exact origin in Railway Variables, then configure:
 
 ```text
-Build:  pnpm install --frozen-lockfile && pnpm prisma generate && pnpm build
-Start: pnpm prisma migrate deploy && pnpm start
-Health: GET /healthz
+Build:   pnpm install --frozen-lockfile && pnpm db:generate && pnpm build
+Migrate: pnpm db:deploy                 # explicit operation after DATABASE_URL is configured
+Start:   pnpm start
+Health:  GET /healthz
 ```
 
 Use a private network/database connection where available. Require `sslmode=require` in `DATABASE_URL`; use `connect_timeout` and `pool_timeout` query parameters appropriate to the Railway/PostgreSQL plan. Do not place database credentials in source control, archives, frontend variables, screenshots, or Android resources.
