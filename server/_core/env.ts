@@ -18,4 +18,5 @@ export const ENV = {
   payflowApiKey: process.env.PAYFLOW_API_KEY ?? "",
   payflowApiSecret: process.env.PAYFLOW_API_SECRET ?? "",
   payflowBaseUrl: process.env.PAYFLOW_BASE_URL ?? "https://payflow.top/api/v2",
+  payflowPaymentAccountId: process.env.PAYFLOW_PAYMENT_ACCOUNT_ID ?? "",
 };

@@ -15,8 +15,8 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, customerProcedure, publicProcedure, router } from "./_core/trpc";
-import { createCustomerSession, clearCustomerSession, consumeEmailVerificationToken, createEmailVerificationToken, customerEmail, hashPassword, verifyPassword } from "./customerAuth";
-import { sendCustomerVerificationEmail } from "./email";
+import { createCustomerSession, clearCustomerSession, consumeEmailVerificationToken, createEmailVerificationToken, createPasswordResetToken, consumePasswordResetToken, customerEmail, hashPassword, verifyPassword } from "./customerAuth";
+import { sendCustomerPasswordResetEmail, sendCustomerVerificationEmail } from "./email";
 import { createDeviceCredential, createPairingMaterial, hashPairingSecret, normalizePairingCode } from "./pairing";
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
@@ -114,6 +114,24 @@ export const appRouter = router({
         if (!customer) throw new Error("Verification link is invalid or expired");
         return { verified: true as const, email: customer.email };
       }),
+    requestCustomerPasswordReset: publicProcedure
+      .input(z.object({ email: z.string().email().max(320) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database unavailable");
+        const customer = await db.customer.findUnique({ where: { email: customerEmail(input.email) } });
+        if (!customer || customer.status !== "ACTIVE") return { requested: true as const };
+        const token = await createPasswordResetToken(customer.id);
+        await sendCustomerPasswordResetEmail({ email: customer.email, name: customer.name, token });
+        return { requested: true as const };
+      }),
+    resetCustomerPassword: publicProcedure
+      .input(z.object({ token: z.string().min(20).max(200), password: z.string().min(12).max(128) }))
+      .mutation(async ({ input }) => {
+        const customer = await consumePasswordResetToken(input.token, input.password);
+        if (!customer) throw new Error("Password reset link is invalid or expired");
+        return { reset: true as const };
+      }),
     customerAccount: customerProcedure.query(({ ctx }) => ({
       id: ctx.customer.id,
       email: ctx.customer.email,
@@ -173,6 +191,53 @@ export const appRouter = router({
           await tx.auditLog.create({ data: { actorType: "CUSTOMER", actorCustomerId: ctx.customer.id, deviceId: device.id, action: "DEVICE_UNPAIRED" } });
           return { success: true as const };
         });
+      }),
+  }),
+  admin: router({
+    customers: adminProcedure
+      .input(z.object({ query: z.string().trim().max(160).optional(), status: z.enum(["ACTIVE", "SUSPENDED"]).optional(), page: z.number().int().min(0).default(0) }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database unavailable");
+        const where: Prisma.CustomerWhereInput = {
+          status: input.status,
+          OR: input.query ? [
+            { email: { contains: input.query, mode: "insensitive" } },
+            { name: { contains: input.query, mode: "insensitive" } },
+            { phone: { contains: input.query } },
+          ] : undefined,
+        };
+        const take = 50;
+        const [items, total] = await Promise.all([
+          db.customer.findMany({ where, orderBy: { createdAt: "desc" }, skip: input.page * take, take, select: { id: true, email: true, name: true, phone: true, status: true, emailVerifiedAt: true, createdAt: true, _count: { select: { devices: true, subscriptions: true } } } }),
+          db.customer.count({ where }),
+        ]);
+        return { items, total, page: input.page, pageSize: take };
+      }),
+    updateCustomerStatus: adminProcedure
+      .input(z.object({ id: z.string().min(1), status: z.enum(["ACTIVE", "SUSPENDED"]) }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database unavailable");
+        const result = await db.$transaction(async tx => {
+          const customer = await tx.customer.update({ where: { id: input.id }, data: { status: input.status } });
+          await tx.auditLog.create({ data: { actorType: "ADMIN", actorUserId: ctx.user.id, actorCustomerId: customer.id, action: "CUSTOMER_STATUS_UPDATED", metadata: { status: input.status } } });
+          return customer;
+        });
+        return { success: true as const, customer: { id: result.id, status: result.status } };
+      }),
+    auditLogs: adminProcedure
+      .input(z.object({ page: z.number().int().min(0).default(0), actorType: z.enum(["CUSTOMER", "ADMIN", "DEVICE", "SYSTEM"]).optional(), action: z.string().trim().max(120).optional() }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database unavailable");
+        const take = 100;
+        const where: Prisma.AuditLogWhereInput = { actorType: input.actorType, action: input.action ? { contains: input.action, mode: "insensitive" } : undefined };
+        const [items, total] = await Promise.all([
+          db.auditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: input.page * take, take, include: { actorUser: { select: { id: true, name: true, email: true } }, actorCustomer: { select: { id: true, email: true, name: true } }, device: { select: { id: true, deviceId: true, deviceName: true } } } }),
+          db.auditLog.count({ where }),
+        ]);
+        return { items, total, page: input.page, pageSize: take };
       }),
   }),
   products: router({
@@ -477,6 +542,7 @@ export const appRouter = router({
           const data = {
             deviceId: device.id,
             androidTransactionId: tx.androidTransactionId,
+            projectionKey: tx.androidTransactionId ? `${device.id}:${tx.androidTransactionId}` : undefined,
             executionId: tx.executionId,
             operationId: tx.operationId,
             customerName: tx.customerName,

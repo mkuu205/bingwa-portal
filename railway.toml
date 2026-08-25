@@ -1,0 +1,14 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "pnpm install --frozen-lockfile && pnpm db:generate && pnpm build"
+
+[deploy]
+startCommand = "pnpm db:deploy && pnpm start"
+healthcheckPath = "/healthz"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+# Configure DATABASE_URL in Railway Variables with sslmode=require,
+# connect_timeout, and pool_timeout. Railway terminates public TLS at the edge.
+# Never place PayFlow credentials or database URLs in this file.

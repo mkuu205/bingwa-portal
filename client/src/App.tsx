@@ -8,6 +8,7 @@ import Home from "./pages/Home";
 import CustomerAuth from "./pages/CustomerAuth";
 import VerifyEmail from "./pages/VerifyEmail";
 import CustomerHome from "./pages/CustomerHome";
+import PasswordReset from "./pages/PasswordReset";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -17,6 +18,8 @@ function Router() {
       <Route path={"/customer/login"} component={CustomerAuth} />
       <Route path={"/customer"} component={CustomerHome} />
       <Route path={"/customer/register"} component={CustomerAuth} />
+      <Route path={"/customer/forgot-password"} component={PasswordReset} />
+      <Route path={"/reset-password"} component={PasswordReset} />
       <Route path={"/verify-email"} component={VerifyEmail} />
       <Route path={"/404"} component={NotFound} />
       {/* Final fallback route */}

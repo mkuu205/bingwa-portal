@@ -25,12 +25,13 @@ function context(role: "admin" | "user", id: number): TrpcContext {
   };
 }
 
-describe("live PostgreSQL product administration", () => {
+const hasPostgres = /^(postgresql|postgres):\/\//.test(process.env.DATABASE_URL ?? "");
+
+describe.skipIf(!hasPostgres)("live PostgreSQL product administration", () => {
   const productIds: string[] = [];
   const userIds = [981, 983];
 
   it("enforces admin access and persists optional pricing plus full edits", async () => {
-    if (!process.env.POSTGRES_DATABASE_URL) throw new Error("POSTGRES_DATABASE_URL is required for this test");
     const suffix = randomUUID().slice(0, 8);
     await prisma.user.upsert({ where: { id: 981 }, update: { role: "admin" }, create: { id: 981, openId: `products-admin-981-${suffix}`, email: `products-admin-981-${suffix}@example.com`, name: "Products admin", role: "admin", loginMethod: "vitest" } });
     const admin = appRouter.createCaller(context("admin", 981));
@@ -69,7 +70,6 @@ describe("live PostgreSQL product administration", () => {
   }, 15_000);
 
   it("refuses deletion after a dependent subscription and allows deletion while unused", async () => {
-    if (!process.env.POSTGRES_DATABASE_URL) throw new Error("POSTGRES_DATABASE_URL is required for this test");
     const suffix = randomUUID().slice(0, 8);
     await prisma.user.upsert({ where: { id: 983 }, update: { role: "admin" }, create: { id: 983, openId: `products-admin-983-${suffix}`, email: `products-admin-983-${suffix}@example.com`, name: "Products admin", role: "admin", loginMethod: "vitest" } });
     const admin = appRouter.createCaller(context("admin", 983));

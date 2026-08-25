@@ -20,9 +20,9 @@ export type InsertUser = {
 };
 
 export async function getDb() {
-  if (!process.env.POSTGRES_DATABASE_URL) {
+  if (!process.env.DATABASE_URL) {
     if (process.env.NODE_ENV === "production") {
-      throw new Error("POSTGRES_DATABASE_URL is required in production");
+      throw new Error("DATABASE_URL is required in production");
     }
     return null;
   }

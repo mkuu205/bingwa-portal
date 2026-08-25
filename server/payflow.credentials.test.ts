@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 describe("PayFlow server credentials", () => {
   it.skipIf(process.env.PAYFLOW_VALIDATE !== "1")("reaches the configured PayFlow host without exposing credentials", async () => {
-    const baseUrl = process.env.PAYFLOW_API_BASE_URL?.trim();
+    const baseUrl = process.env.PAYFLOW_BASE_URL?.trim();
     const apiKey = process.env.PAYFLOW_API_KEY?.trim();
     const apiSecret = process.env.PAYFLOW_API_SECRET?.trim();
     expect(baseUrl).toBeTruthy();

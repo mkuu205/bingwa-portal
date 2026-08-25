@@ -2,7 +2,7 @@ import { describe, expect, it, afterAll } from "vitest";
 import { prisma } from "./prisma";
 import { createCustomerSession, createEmailVerificationToken, consumeEmailVerificationToken, clearCustomerSession, hashPassword, getCustomerFromRequest } from "./customerAuth";
 
-const enabled = Boolean(process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL);
+const enabled = /^(postgresql|postgres):\/\//.test(process.env.DATABASE_URL ?? "");
 const describeIfDatabase = enabled ? describe : describe.skip;
 const email = `vitest-customer-${Date.now()}@example.invalid`;
 

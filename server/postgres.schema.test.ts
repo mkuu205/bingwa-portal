@@ -1,12 +1,10 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { prisma } from "./prisma";
 
-describe("PostgreSQL Prisma schema", () => {
-  it("contains the migrated Portal tables on the configured database", async () => {
-    if (!process.env.POSTGRES_DATABASE_URL) {
-      throw new Error("POSTGRES_DATABASE_URL is required for this test");
-    }
+const hasPostgres = /^(postgresql|postgres):\/\//.test(process.env.DATABASE_URL ?? "");
 
+describe.skipIf(!hasPostgres)("PostgreSQL Prisma schema", () => {
+  it("contains the migrated Portal tables on the configured database", async () => {
     const result = await prisma.$queryRaw<Array<{ table_name: string }>>`
       SELECT table_name
       FROM information_schema.tables

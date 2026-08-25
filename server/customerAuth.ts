@@ -10,6 +10,7 @@ const scrypt = promisify(nodeScrypt);
 export const CUSTOMER_SESSION_COOKIE = "__Host-bingwa_customer_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const EMAIL_TOKEN_TTL_MS = 1000 * 60 * 30;
+const PASSWORD_RESET_TOKEN_TTL_MS = 1000 * 60 * 30;
 const SCRYPT_KEY_LENGTH = 64;
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
@@ -106,6 +107,35 @@ export async function consumeEmailVerificationToken(token: string) {
       where: { id: record.customerId },
       data: { emailVerifiedAt: new Date() },
     });
+  });
+}
+
+export async function createPasswordResetToken(customerId: string) {
+  const token = randomBytes(32).toString("base64url");
+  await prisma.passwordResetToken.deleteMany({ where: { customerId, consumedAt: null } });
+  await prisma.passwordResetToken.create({
+    data: {
+      customerId,
+      tokenHash: hashToken(token),
+      expiresAt: new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS),
+    },
+  });
+  return token;
+}
+
+export async function consumePasswordResetToken(token: string, newPassword: string) {
+  const record = await prisma.passwordResetToken.findUnique({ where: { tokenHash: hashToken(token) } });
+  if (!record || record.consumedAt || record.expiresAt <= new Date()) return null;
+  const passwordHash = await hashPassword(newPassword);
+  return prisma.$transaction(async tx => {
+    const consumed = await tx.passwordResetToken.updateMany({
+      where: { id: record.id, consumedAt: null, expiresAt: { gt: new Date() } },
+      data: { consumedAt: new Date() },
+    });
+    if (consumed.count !== 1) return null;
+    const customer = await tx.customer.update({ where: { id: record.customerId }, data: { passwordHash } });
+    await tx.customerSession.deleteMany({ where: { customerId: customer.id } });
+    return customer;
   });
 }
 

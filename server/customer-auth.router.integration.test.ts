@@ -1,12 +1,16 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 
-vi.mock("./email", () => ({ sendCustomerVerificationEmail: vi.fn().mockResolvedValue(undefined) }));
+vi.mock("./email", () => ({
+  sendCustomerVerificationEmail: vi.fn().mockResolvedValue(undefined),
+  sendCustomerPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
+}));
 
 import { appRouter } from "./routers";
 import { prisma } from "./prisma";
 import { createEmailVerificationToken, CUSTOMER_SESSION_COOKIE, getCustomerFromRequest, hashPassword } from "./customerAuth";
+import { sendCustomerPasswordResetEmail } from "./email";
 
-const enabled = Boolean(process.env.POSTGRES_DATABASE_URL || process.env.DATABASE_URL);
+const enabled = /^(postgresql|postgres):\/\//.test(process.env.DATABASE_URL ?? "");
 const describeIfDatabase = enabled ? describe : describe.skip;
 const email = `vitest-router-${Date.now()}@example.invalid`;
 
@@ -64,6 +68,26 @@ describeIfDatabase("customer auth router flow", () => {
     const logout = await appRouter.createCaller(sessionContext.ctx).auth.customerLogout();
     expect(logout).toEqual({ success: true });
     expect(await prisma.customerSession.count({ where: { customerId } })).toBe(0);
+  });
+
+  it("requests and consumes a single-use password reset token", async () => {
+    const resetEmail = `vitest-reset-${Date.now()}@example.invalid`;
+    const customer = await prisma.customer.create({
+      data: { email: resetEmail, passwordHash: await hashPassword("old password value"), name: "Reset Customer", emailVerifiedAt: new Date() },
+    });
+    try {
+      const caller = appRouter.createCaller(makeContext().ctx);
+      await expect(caller.auth.requestCustomerPasswordReset({ email: resetEmail })).resolves.toEqual({ requested: true });
+      const calls = vi.mocked(sendCustomerPasswordResetEmail).mock.calls;
+      const latest = calls[calls.length - 1]?.[0];
+      expect(latest?.token).toMatch(/^[A-Za-z0-9_-]{20,}$/);
+      await expect(caller.auth.resetCustomerPassword({ token: latest!.token, password: "new secure password" })).resolves.toEqual({ reset: true });
+      await expect(caller.auth.resetCustomerPassword({ token: latest!.token, password: "another secure password" })).rejects.toThrow("invalid or expired");
+      expect(await prisma.customerSession.count({ where: { customerId: customer.id } })).toBe(0);
+    } finally {
+      await prisma.passwordResetToken.deleteMany({ where: { customerId: customer.id } });
+      await prisma.customer.delete({ where: { id: customer.id } });
+    }
   });
 
   it("rejects login before email verification", async () => {
