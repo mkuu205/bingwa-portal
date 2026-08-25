@@ -149,3 +149,27 @@
 - [x] Add explicit Vitest/integration coverage for admin audit-log workspace authorization, loading, empty, and paginated populated states using safe local/test data
 - [x] Add additional database-independent tests for remaining Portal boundaries and reference them in the passing test run
 - [ ] Capture responsive verification for authenticated admin workspaces at desktop and mobile widths and document checked views (blocked by unavailable authenticated session)
+
+## Production URL continuation
+
+- [x] Configure centralized APP_URL as https://portal.bingwasokoni.top without adding production credentials
+- [x] Route email verification, password-reset, pairing URLs, CORS/origin checks, and Railway documentation through APP_URL
+- [x] Add credential-independent tests for APP_URL URL generation and production HTTPS/origin enforcement
+- [x] Keep .env.example placeholder-only and document production secrets as runtime configuration only
+- [x] Re-run pnpm check, pnpm test, and pnpm build, then save a new checkpoint
+
+## Production APP_URL standardization
+
+- [x] Use one server-side APP_URL for all backend-generated customer-facing Portal URLs
+- [x] Replace APP_BASE_URL-only configuration and prevent production localhost or temporary-domain links
+- [x] Apply APP_URL to email verification, password reset, pairing, redirects, OAuth where applicable, CORS/origin, and secure-cookie rules
+- [x] Update Railway documentation and placeholder environment configuration with https://portal.bingwasokoni.top
+- [x] Add URL/origin regression tests and run pnpm check, pnpm test, and pnpm build
+
+## APP_URL verification gaps
+
+- [x] Audit and update every backend-generated pairing URL to use ENV.appUrl and add coverage
+- [ ] Verify .env.example exists, contains placeholders only, and documents APP_URL without credentials
+- [x] Reject localhost, temporary Railway, and temporary Manus domains as production APP_URL values
+- [x] Audit remaining backend redirect and OAuth URL paths and prove APP_URL usage where applicable
+- [ ] Save a new checkpoint after resolving APP_URL gaps

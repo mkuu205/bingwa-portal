@@ -1,4 +1,5 @@
 import type { CookieOptions, Request } from "express";
+import { ENV } from "./env";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -24,25 +25,17 @@ function isSecureRequest(req: Request) {
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
-  // const hostname = req.hostname;
-  // const shouldSetDomain =
-  //   hostname &&
-  //   !LOCAL_HOSTS.has(hostname) &&
-  //   !isIpAddress(hostname) &&
-  //   hostname !== "127.0.0.1" &&
-  //   hostname !== "::1";
-
-  // const domain =
-  //   shouldSetDomain && !hostname.startsWith(".")
-  //     ? `.${hostname}`
-  //     : shouldSetDomain
-  //       ? hostname
-  //       : undefined;
+  const appUrl = new URL(ENV.appUrl);
+  const production = ENV.isProduction;
+  const requestHost = typeof req.get === "function" ? req.get("host") : undefined;
+  const hostname = req.hostname ?? requestHost?.split(":")[0] ?? "";
+  const localRequest = LOCAL_HOSTS.has(hostname) || isIpAddress(hostname);
 
   return {
+    domain: production && !localRequest ? appUrl.hostname : undefined,
     httpOnly: true,
     path: "/",
     sameSite: "none",
-    secure: isSecureRequest(req),
+    secure: production || isSecureRequest(req),
   };
 }

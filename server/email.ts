@@ -17,12 +17,12 @@ export async function sendCustomerPasswordResetEmail(params: {
   token: string;
 }) {
   const transport = getTransport();
-  if (!transport || !ENV.emailFrom || !ENV.appBaseUrl) {
+  if (!transport || !ENV.emailFrom || !ENV.appUrl) {
     if (ENV.isProduction) throw new Error("Password recovery delivery is not configured");
     console.warn("[Email] Password recovery delivery skipped because SMTP is not configured");
     return { sent: false as const };
   }
-  const resetUrl = new URL("/reset-password", ENV.appBaseUrl);
+  const resetUrl = new URL("/reset-password", ENV.appUrl);
   resetUrl.searchParams.set("token", params.token);
   await transport.sendMail({
     from: ENV.emailFrom,
@@ -39,13 +39,13 @@ export async function sendCustomerVerificationEmail(params: {
   token: string;
 }) {
   const transport = getTransport();
-  if (!transport || !ENV.emailFrom || !ENV.appBaseUrl) {
+  if (!transport || !ENV.emailFrom || !ENV.appUrl) {
     if (ENV.isProduction) throw new Error("Email verification delivery is not configured");
     console.warn("[Email] Verification delivery skipped because SMTP is not configured");
     return { sent: false as const };
   }
 
-  const verificationUrl = new URL("/verify-email", ENV.appBaseUrl);
+  const verificationUrl = new URL("/verify-email", ENV.appUrl);
   verificationUrl.searchParams.set("token", params.token);
   await transport.sendMail({
     from: ENV.emailFrom,

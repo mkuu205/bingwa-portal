@@ -9,7 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { registerHealthRoute } from "../health";
 import { serveStatic, setupVite } from "./vite";
-import { ENV, validateProductionDatabaseUrl } from "./env";
+import { ENV, validateProductionAppUrl, validateProductionDatabaseUrl } from "./env";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -32,11 +32,26 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 
 async function startServer() {
   validateProductionDatabaseUrl(ENV.databaseUrl);
+  validateProductionAppUrl(ENV.appUrl);
   const app = express();
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  const allowedOrigin = new URL(ENV.appUrl).origin;
+  app.use((req, res, next) => {
+    const requestOrigin = req.headers.origin;
+    const localOrigin = process.env.NODE_ENV === "development" && requestOrigin?.startsWith("http://localhost:");
+    if (requestOrigin && (requestOrigin === allowedOrigin || localOrigin)) {
+      res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+      res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+      res.setHeader("Vary", "Origin");
+    }
+    if (req.method === "OPTIONS") return res.sendStatus(204);
+    next();
+  });
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerHealthRoute(app);

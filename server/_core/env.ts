@@ -15,6 +15,26 @@ export function validateProductionDatabaseUrl(url: string): void {
   }
 }
 
+export function validateProductionAppUrl(url: string): void {
+  if (process.env.NODE_ENV !== "production") return;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("APP_URL must be a valid absolute URL in production");
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error("APP_URL must use HTTPS in production");
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1" || hostname.endsWith(".railway.app") || hostname.endsWith(".manus.computer")) {
+    throw new Error("APP_URL must use the public production Portal domain, not a local or temporary host");
+  }
+  if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    throw new Error("APP_URL must be an origin URL without a path, query, or fragment");
+  }
+}
+
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",
@@ -30,7 +50,7 @@ export const ENV = {
   smtpUser: process.env.SMTP_USER ?? "",
   smtpPassword: process.env.SMTP_PASSWORD ?? "",
   emailFrom: process.env.EMAIL_FROM ?? "",
-  appBaseUrl: process.env.APP_BASE_URL ?? "http://localhost:3000",
+  appUrl: process.env.APP_URL ?? "http://localhost:3000",
   customerSessionSecret: process.env.CUSTOMER_SESSION_SECRET ?? process.env.JWT_SECRET ?? "",
   payflowApiKey: process.env.PAYFLOW_API_KEY ?? "",
   payflowApiSecret: process.env.PAYFLOW_API_SECRET ?? "",

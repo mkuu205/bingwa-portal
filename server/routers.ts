@@ -18,6 +18,7 @@ import { adminProcedure, customerProcedure, publicProcedure, router } from "./_c
 import { createCustomerSession, clearCustomerSession, consumeEmailVerificationToken, createEmailVerificationToken, createPasswordResetToken, consumePasswordResetToken, customerEmail, hashPassword, verifyPassword } from "./customerAuth";
 import { sendCustomerPasswordResetEmail, sendCustomerVerificationEmail } from "./email";
 import { createDeviceCredential, createPairingMaterial, hashPairingSecret, normalizePairingCode } from "./pairing";
+import { ENV } from "./_core/env";
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
@@ -178,7 +179,10 @@ export const appRouter = router({
           expiresAt,
         },
       });
-      return { code: material.code, secret: material.secret, expiresAt };
+      const pairingUrl = new URL("/pair-device", ENV.appUrl);
+      pairingUrl.searchParams.set("code", material.code);
+      pairingUrl.searchParams.set("secret", material.secret);
+      return { code: material.code, secret: material.secret, pairingUrl: pairingUrl.toString(), expiresAt };
     }),
     unpairDevice: customerProcedure
       .input(z.object({ deviceId: z.number().int().positive() }))

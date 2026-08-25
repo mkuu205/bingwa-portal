@@ -6,7 +6,7 @@ The Bingwa Portal is the administrative control plane. BingwaAuto Android device
 
 Run the portal with Node.js 22 or later and PostgreSQL 14 or later. The only production ORM is Prisma, and the only production database provider is PostgreSQL. The application binds to the platform-provided `PORT` value.
 
-For Railway, create one web service and attach a PostgreSQL service. Configure:
+For Railway, create one web service and attach a PostgreSQL service. Production Portal: `https://portal.bingwasokoni.top`. Configure `APP_URL` to that exact origin in Railway Variables, then configure:
 
 ```text
 Build:  pnpm install --frozen-lockfile && pnpm prisma generate && pnpm build
@@ -25,7 +25,7 @@ Use the deployment secret manager. `.env.example` is a placeholder template only
 | `DATABASE_URL` | Server | PostgreSQL/Prisma connection string with TLS and bounded connection settings |
 | `JWT_SECRET` | Server | Manus/session signing secret |
 | `CUSTOMER_SESSION_SECRET` | Server | Native customer session secret |
-| `APP_BASE_URL` | Server | Canonical HTTPS URL used in customer links |
+| `APP_URL` | Server | Canonical HTTPS origin used in customer links; production is `https://portal.bingwasokoni.top` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` | Server | Email verification and password recovery |
 | `PAYFLOW_BASE_URL` | Server only, deferred | PayFlow API base URL; no live integration is enabled yet |
 | `PAYFLOW_API_KEY` | Server only, deferred | PayFlow authentication key |

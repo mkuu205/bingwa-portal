@@ -8,7 +8,11 @@ The Portal is designed to build and run its unit tests without production creden
 |---|---:|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection URL with `sslmode=require`, `connection_limit`, `pool_timeout`, and `connect_timeout` parameters |
 | `JWT_SECRET` | Yes | Session/signing secret |
-| `APP_BASE_URL` | Yes | Canonical HTTPS Portal URL |
+| `APP_URL` | Yes | Canonical HTTPS Portal origin used for all backend-generated customer-facing links and production origin checks |
+
+Production Portal: `https://portal.bingwasokoni.top`
+
+`APP_URL` must be an HTTPS origin without a path, query string, or fragment. It is the only server-side source for customer login/registration redirects, email verification links, password-reset links, device-pairing links, applicable OAuth redirects, API origin checks, and production cookie policy. The Railway temporary hostname and localhost are development-only values and must never be used for production customer-facing links.
 
 ## Optional development variables
 
@@ -16,7 +20,7 @@ SMTP variables are optional until customer email delivery is configured. PayFlow
 
 ## Railway
 
-The repository includes `railway.toml`. Railway should run the Prisma migration command before starting the server, provide a pooled TLS PostgreSQL `DATABASE_URL`, and expose `/healthz` for health checks. The service must terminate startup in production when the database URL is not PostgreSQL/TLS/pool configured. Development and test execution must not fail solely because these production-only values are absent.
+The repository includes `railway.toml`. Production Portal: `https://portal.bingwasokoni.top`. Set `APP_URL` to that exact origin in Railway Variables. Railway should run the Prisma migration command before starting the server, provide a pooled TLS PostgreSQL `DATABASE_URL`, and expose `/healthz` for health checks. The service must terminate startup in production when the database URL is not PostgreSQL/TLS/pool configured. Development and test execution must not fail solely because these production-only values are absent.
 
 ## PayFlow gate
 
