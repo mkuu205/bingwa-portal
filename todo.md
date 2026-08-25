@@ -44,6 +44,7 @@
 - [x] Implement configurable device/subscription products with no invented initial prices
 - [ ] Implement server-only PayFlow STK Push and status verification with idempotent payment records and transactional entitlement activation (deferred: user will configure env later)
 - [ ] Add payment/product/customer/security documentation, regression tests, integration tests, and responsive UI verification
+- [x] Add PAYMENTS.md documenting the deferred PayFlow boundary and activation gates
 - [x] Implement admin product CRUD for device/subscription products with validation and authorization boundaries
 - [x] Add Portal product UI with listing, create, update, archive, loading, empty, and error states
 - [x] Add product authorization, persistence, and price-configuration integration coverage
