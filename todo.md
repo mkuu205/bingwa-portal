@@ -54,6 +54,7 @@
 - [x] Add Prisma/PostgreSQL product integration coverage for admin authorization and persistence round-trips
 - [x] Implement safe product delete behavior or document archive-only lifecycle when dependent records exist
 - [ ] Deliver the migrated production-ready Portal with required secrets and owner-supplied pricing clearly identified
+- [x] Create a separate website-only Portal source archive; keep Android archive and PayFlow concerns separate
 
 - [x] Add an authenticated `/customer` destination so successful customer login does not land on a 404
 - [x] Initialize customer login/register mode from the current route and add regression coverage for registration, verification, login, session resolution, logout, and post-login routing
