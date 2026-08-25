@@ -56,6 +56,46 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   });
 }
 
+export async function upsertPasswordUser(input: {
+  customerId: string;
+  email: string;
+  name: string;
+  lastSignedIn?: Date;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  const lastSignedIn = input.lastSignedIn ?? new Date();
+  const generatedOpenId = `customer_${input.customerId}`;
+
+  await db.$transaction(async tx => {
+    const existing = await tx.user.findFirst({
+      where: { email: input.email },
+      orderBy: { createdAt: "asc" },
+      select: { openId: true },
+    });
+    const openId = existing?.openId ?? generatedOpenId;
+
+    await tx.user.upsert({
+      where: { openId },
+      create: {
+        openId,
+        name: input.name,
+        email: input.email,
+        loginMethod: "password",
+        role: "user",
+        lastSignedIn,
+      },
+      update: {
+        name: input.name,
+        email: input.email,
+        loginMethod: "password",
+        lastSignedIn,
+      },
+    });
+  });
+}
+
 export async function getUserByOpenId(openId: string): Promise<PrismaUser | undefined> {
   const db = await getDb();
   if (!db) return undefined;

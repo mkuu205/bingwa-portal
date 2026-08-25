@@ -10,6 +10,7 @@ import {
   searchTransactions,
   updateDeviceCommandResult,
   updateSubscriptionRecord,
+  upsertPasswordUser,
 } from "./db";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
@@ -94,6 +95,11 @@ export const appRouter = router({
             phone: input.phone,
           },
         });
+        await upsertPasswordUser({
+          customerId: customer.id,
+          email: customer.email,
+          name: customer.name,
+        });
         const token = await createEmailVerificationToken(customer.id);
         await sendCustomerVerificationEmail({ email: customer.email, name: customer.name, token });
         return { created: true as const, email: customer.email };
@@ -107,7 +113,14 @@ export const appRouter = router({
         if (!customer || !(await verifyPassword(input.password, customer.passwordHash)) || !customer.emailVerifiedAt || customer.status !== "ACTIVE") {
           throw new Error("Invalid credentials or unverified email");
         }
-        await db.customer.update({ where: { id: customer.id }, data: { lastSignedInAt: new Date() } });
+        const lastSignedIn = new Date();
+        await db.customer.update({ where: { id: customer.id }, data: { lastSignedInAt: lastSignedIn } });
+        await upsertPasswordUser({
+          customerId: customer.id,
+          email: customer.email,
+          name: customer.name,
+          lastSignedIn,
+        });
         await createCustomerSession(ctx.req, ctx.res, customer.id);
         return { success: true as const, customer: { id: customer.id, email: customer.email, name: customer.name } };
       }),
