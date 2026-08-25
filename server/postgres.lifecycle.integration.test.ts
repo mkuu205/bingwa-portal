@@ -98,6 +98,7 @@ describe.skipIf(!hasPostgres)("live PostgreSQL Portal lifecycle", () => {
         operationalStatus: "ready",
         transactions: [
           {
+            androidTransactionId: `android-${suffix}`,
             phoneNumber,
             packageName: "Vitest Package",
             amount: 19,
@@ -113,6 +114,28 @@ describe.skipIf(!hasPostgres)("live PostgreSQL Portal lifecycle", () => {
       expect(persisted?.packageName).toBe("Vitest Package");
       transactionId = persisted?.id;
       expect(await searchTransactions(phoneNumber)).toHaveLength(1);
+
+      const duplicateHeartbeat = {
+        deviceId: deviceKey,
+        enrollmentToken,
+        device: { deviceName: "Vitest PostgreSQL Device", appVersion: "test" },
+        operationalStatus: "ready",
+        transactions: [{
+          androidTransactionId: `android-${suffix}`,
+          phoneNumber,
+          packageName: "Vitest Package Updated",
+          amount: 19,
+          status: "COMPLETED" as const,
+          verificationStatus: "NOT_REQUIRED" as const,
+          receiptCode: `R-${suffix.slice(0, 8)}`,
+        }],
+      };
+      await Promise.all([
+        deviceCaller.deviceSync.heartbeat(duplicateHeartbeat),
+        deviceCaller.deviceSync.heartbeat(duplicateHeartbeat),
+      ]);
+      await expect(prisma.transaction.count({ where: { projectionKey: `${deviceId}:android-${suffix}` } })).resolves.toBe(1);
+      await expect(prisma.transaction.findUnique({ where: { id: transactionId } })).resolves.toMatchObject({ packageName: "Vitest Package Updated" });
 
       const queued = await admin.operations.enqueueCommand({
         deviceId,

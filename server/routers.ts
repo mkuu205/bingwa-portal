@@ -53,7 +53,10 @@ const transactionSyncInput = z.object({
   receiptCode: z.string().max(120).optional(),
   issue: z.string().optional(),
   executedAt: z.coerce.date().optional(),
-});
+}).refine(
+  value => Boolean(value.androidTransactionId || value.executionId || value.operationId),
+  { message: "At least one Android transaction identity is required for projection" },
+);
 
 export const appRouter = router({
   system: systemRouter,
@@ -532,17 +535,13 @@ export const appRouter = router({
         };
         await db.device.update({ where: { id: device.id }, data: deviceUpdate });
         for (const tx of input.transactions) {
-          const existing = tx.androidTransactionId
-            ? await db.transaction.findFirst({
-                where: { deviceId: device.id, androidTransactionId: tx.androidTransactionId },
-                orderBy: { updatedAt: "desc" },
-                select: { id: true },
-              })
-            : null;
+          const projectionKey = tx.androidTransactionId
+            ? `${device.id}:${tx.androidTransactionId}`
+            : undefined;
           const data = {
             deviceId: device.id,
             androidTransactionId: tx.androidTransactionId,
-            projectionKey: tx.androidTransactionId ? `${device.id}:${tx.androidTransactionId}` : undefined,
+            projectionKey,
             executionId: tx.executionId,
             operationId: tx.operationId,
             customerName: tx.customerName,
@@ -557,8 +556,12 @@ export const appRouter = router({
             issue: tx.issue,
             executedAt: tx.executedAt,
           };
-          if (existing) {
-            await db.transaction.update({ where: { id: existing.id }, data });
+          if (projectionKey) {
+            await db.transaction.upsert({
+              where: { projectionKey },
+              create: data,
+              update: data,
+            });
           } else {
             await db.transaction.create({ data });
           }

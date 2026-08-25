@@ -114,16 +114,18 @@
 - [x] Add encrypted credential/configuration storage and intentionally disabled Portal HTTP body/header logging
 
 - [x] Remove project/archive secret-bearing configuration and normalize server environment names
-- [ ] Add placeholder-only .env.example and exclude environment files from archives/builds
-- [ ] Remove legacy Drizzle/MySQL files and stale production documentation
+- [ ] Add placeholder-only .env.example and exclude environment files from archives/builds (blocked until managed through the project secret workflow)
+- [x] Remove legacy Drizzle/MySQL files and stale production documentation
 - [x] Add password recovery with single-use expiring reset tokens
 - [x] Add admin customer management and audit-log management procedures and UI
 - [x] Fix Home customer/audit UI compile errors from missing React, Users, and History icon aliases
-- [ ] Add database-level idempotency for Android transaction projection
+- [x] Add database-level idempotency for Android transaction projection
+- [x] Replace projection find-then-create race with unique-keyed upsert and concurrency coverage
 - [ ] Add Android Portal boundary integration tests and verify Mesh independence
-- [ ] Add Railway deployment, migration, health-check, TLS, and connection-pooling configuration
+- [x] Add Railway deployment, migration, health-check, TLS, and connection-pooling configuration
+- [x] Wire Railway migration/start commands and validate pooled TLS PostgreSQL configuration
 - [ ] Fix and verify stable Prisma PostgreSQL connectivity
-- [ ] Correct password-reset integration coverage to exercise creation, consumption, and single-use rejection of the raw token
+- [x] Correct password-reset integration coverage to exercise creation, consumption, and single-use rejection of the raw token
 - [x] Fix PostgreSQL integration-test guards to require a valid postgres:// or postgresql:// DATABASE_URL
 - [x] Make PostgreSQL integration tests skip cleanly when DATABASE_URL is not configured
 - [x] Restore BingwaAuto neon-green theme tokens without redesigning the UI

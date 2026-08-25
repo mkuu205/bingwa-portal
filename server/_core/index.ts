@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { registerHealthRoute } from "../health";
 import { serveStatic, setupVite } from "./vite";
+import { ENV, validateProductionDatabaseUrl } from "./env";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -30,6 +31,7 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
+  validateProductionDatabaseUrl(ENV.databaseUrl);
   const app = express();
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads

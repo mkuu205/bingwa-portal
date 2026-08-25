@@ -1,3 +1,20 @@
+export function validateProductionDatabaseUrl(url: string): void {
+  if (process.env.NODE_ENV !== "production") return;
+  if (!/^postgres(?:ql):\/\//.test(url)) {
+    throw new Error("DATABASE_URL must use the PostgreSQL protocol in production");
+  }
+  const parsed = new URL(url);
+  if (parsed.searchParams.get("sslmode") !== "require") {
+    throw new Error("DATABASE_URL must set sslmode=require in production");
+  }
+  for (const parameter of ["connection_limit", "pool_timeout", "connect_timeout"]) {
+    const value = Number(parsed.searchParams.get(parameter));
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new Error(`DATABASE_URL must set a positive ${parameter} in production`);
+    }
+  }
+}
+
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",
