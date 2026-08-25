@@ -9,3 +9,15 @@ The supplied focused tests cover transaction projection mapping, malformed-comma
 The Portal-side contract has matching device authentication, heartbeat, transaction projection, command polling, acknowledgement/result reporting, and unique projection-key upsert behavior. The web project does not call PayFlow endpoints, and no PayFlow credentials are placed in Android code or the frontend.
 
 Remaining Android runtime items are intentionally pending: execute a real `QUEUE_PAYMENT` through the device queue, confirm command terminal reporting on-device, and run the complete Android suite. These require an executable Android build environment and/or device runtime, but do not justify modifying the existing transaction, USSD, SMS, queue-ownership, Mesh, or canonical-finalization engines.
+
+## Additional focused evidence
+
+The supplied Android source now includes `PortalBoundarySecurityTest`, which directly verifies that `PaymentQueuePortalGateway.enqueue()` delegates a supported `QUEUE_PAYMENT` payload to `PaymentQueueService`, and that `PortalRepository` converts thrown failures to a type-only `PortalResult.NetworkFailure` without exposing credential or response content in the result.
+
+The new test class could not execute in the current sandbox because the archive lacks an executable `gradlew` script and the checked-in Gradle wrapper cannot locate an Android SDK (`ANDROID_HOME`/`sdk.dir` is unavailable). Run `:app:testDebugUnitTest --tests com.bingwasokoni.automation.portal.PortalBoundarySecurityTest` on a machine with a configured Android SDK before merging the test into the Android source of record.
+
+## Full-suite status record
+
+The Android full-suite task is `:app:testDebugUnitTest`. In this sandbox, execution stops during Gradle configuration because `ANDROID_HOME`/`sdk.dir` is not configured; the archive also lacks the executable `gradlew` script and only contains the wrapper JAR. Therefore no new full-suite result is claimed here. The inherited project report records 12 legacy Android unit failures in encoder/validator areas; that count is preserved as historical information and was not independently rerun in this environment. The Portal foundation does not modify those tests or the existing payment engine.
+
+The Android Portal repository’s `execute` method logs only operation name, HTTP status, and exception class; it does not log request bodies, response bodies, device tokens, pairing secrets, or authorization values. The temporary audit test checks the result boundary but is not claimed as executed or as a substitute for device-side transport logging validation.

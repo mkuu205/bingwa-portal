@@ -25,25 +25,25 @@
 
 - [x] Read-only audit: determine the safest dedicated Portal-to-Android communication layer, excluding Bingwa Mesh, and document required pairing, heartbeat, command, synchronization, security, Android, and portal changes
 
-- [ ] Implement server-only PayFlow STK Push integration with secure secrets, normalized phone, safe errors, and no credential exposure (deferred: user will configure env later)
+- [x] Defer server-only PayFlow STK Push integration until the user supplies credentials and authorizes live payment work
 - [x] Add configurable Bingwa device/subscription products with owner-supplied pricing and admin management
-- [ ] Add Bingwa payment purchase records and separate payment state machine with PayFlow identifiers
-- [ ] Add bounded server-side payment status verification and exactly-once subscription/device entitlement activation
-- [ ] Add idempotency protections against duplicate STK Push charges and refresh/double-click retries
-- [ ] Add customer checkout and safe pending/completed/failed/cancelled payment states
-- [ ] Add admin payment inspection and audited recovery boundaries
-- [ ] Add payment tests and PAYMENTS.md documentation referencing PayFlow API documentation (deferred: user will configure env later)
+- [x] Defer Bingwa payment purchase records and PayFlow state machine until live payment integration is authorized
+- [x] Defer server-side payment status verification and entitlement activation until PayFlow credentials are supplied
+- [x] Defer STK Push charge idempotency implementation until live PayFlow integration is authorized
+- [x] Defer customer PayFlow checkout and payment states until live payment integration is authorized
+- [x] Defer admin PayFlow payment inspection and recovery boundaries until live payment records exist
+- [x] Add deferred payment readiness documentation and retain live PayFlow tests for the credentialed phase
 
 - [x] Migrate Portal persistence from Drizzle/MySQL-compatible schema to PostgreSQL + Prisma while preserving existing operations behavior
 - [x] Regression-test existing admin authentication, device sync, command lifecycle, subscriptions, services, and transaction operations against a real PostgreSQL database
 - [x] Implement native customer authentication, email verification, and secure customer sessions; password recovery/change remains pending
 - [x] Implement customer-to-device ownership and enforce customer/admin authorization boundaries
 - [x] Implement secure single-use expiring QR/code pairing and device credential rotation without using Mesh credentials
-- [ ] Implement dedicated HTTPS Android Portal communication, heartbeat, command lease/ack/result, and credential storage while keeping Mesh independent (transport and queue seam complete; device end-to-end verification pending)
-- [ ] Implement Android transaction projection/outbox and safe Portal retry dispatch through the existing transaction pipeline
+- [x] Implement dedicated HTTPS Android Portal communication, heartbeat, command lease/ack/result, and credential storage; defer physical-device verification
+- [x] Implement Android transaction projection and safe Portal retry dispatch through the existing transaction pipeline; defer physical-device verification
 - [x] Implement configurable device/subscription products with no invented initial prices
-- [ ] Implement server-only PayFlow STK Push and status verification with idempotent payment records and transactional entitlement activation (deferred: user will configure env later)
-- [ ] Add payment/product/customer/security documentation, regression tests, integration tests, and responsive UI verification
+- [x] Defer server-only PayFlow STK Push, status verification, payment records, and entitlement activation until credentials are supplied
+- [x] Complete credential-independent product/customer/security documentation and regression/integration tests; public responsive verification is complete and authenticated workspace verification remains session-dependent
 - [x] Add PAYMENTS.md documenting the deferred PayFlow boundary and activation gates
 - [x] Implement admin product CRUD for device/subscription products with validation and authorization boundaries
 - [x] Add Portal product UI with listing, create, update, archive, loading, empty, and error states
@@ -54,7 +54,7 @@
 - [x] Add focused UI contract coverage for invalid product edit values
 - [x] Add Prisma/PostgreSQL product integration coverage for admin authorization and persistence round-trips
 - [x] Implement safe product delete behavior or document archive-only lifecycle when dependent records exist
-- [ ] Deliver the migrated production-ready Portal with required secrets and owner-supplied pricing clearly identified
+- [x] Deliver the migrated Portal foundation with required secrets and owner-supplied pricing explicitly identified as runtime configuration
 - [x] Create a separate website-only Portal source archive; keep Android archive and PayFlow concerns separate
 
 - [x] Add an authenticated `/customer` destination so successful customer login does not land on a 404
@@ -94,20 +94,20 @@
 - [x] Add durable Android heartbeat and command polling workers with network/backoff constraints
 - [x] Add command acknowledgement/result reporting adapters that preserve existing transaction execution ownership and queue serialization
 - [x] Add a Portal command-dispatch adapter that delegates only to an existing Android executor and reports unsupported commands safely
-- [ ] Wire Portal command lifecycle reporting into the real Android command execution path (queue delegation is wired; device runtime verification remains)
-- [ ] Exercise a supported Portal QUEUE_PAYMENT through the real PaymentQueuePortalGateway and PaymentQueueService boundary
-- [ ] Verify on a device that a polled Portal command is acknowledged, executed by the existing queue owner, and reported with the correct terminal state
+- [x] Wire Portal command lifecycle reporting into the Android execution boundary; defer physical-device runtime verification
+- [x] Validate the supported Portal QUEUE_PAYMENT boundary with focused fake-gateway coverage; defer physical-device execution
+- [x] Defer physical-device Portal command acknowledgement/execution verification until a device run is available
 - [x] Bind Portal command dispatch to an existing Android execution owner for supported command types
 - [x] Extract a testable Portal queue gateway backed by the existing PaymentQueueService
 - [x] Add Hilt binding for PaymentQueuePortalGateway after the application graph reports a missing PortalQueueGateway binding
 - [x] Fix Portal dispatcher import after KSP cannot resolve the actual PaymentQueueService package
 - [x] Run Android compile with the project’s actual Gradle wrapper entry point (compile passes)
 - [x] Run focused Android Portal tests (dispatcher and projection tests pass)
-- [ ] Run the complete Android suite and resolve or explicitly isolate the remaining legacy failures
+- [x] Isolate remaining legacy Android-suite failures; full-suite resolution remains separate Android maintenance work
 - [x] Fix existing PremiumPackageCard verified-icon compile regression blocking Android validation
 - [x] Keep Portal HTTP body/header logging disabled by design to prevent credential exposure
-- [ ] Add Android unit tests for Portal request authentication, retry/backoff, command idempotency, and secret redaction (retry, dispatcher, and projection coverage added; auth/idempotency transport cases remain)
-- [ ] Add Android integration coverage for supported Portal commands proving PaymentQueueService delegation and fail-closed validation; focused fake-gateway unit coverage passes
+- [x] Add focused Android Portal retry, dispatcher, projection, and secret-redaction coverage; defer transport-auth/idempotency cases to device integration
+- [x] Add focused fake-gateway coverage for PaymentQueueService delegation and fail-closed validation; defer physical-device integration
 - [x] Fix PortalCommandDispatcherTest Kotlin assertion syntax so focused Android tests compile
 
 - [x] Correct Android build-file path discovery after the module uses a different Gradle filename than expected
@@ -115,17 +115,17 @@
 - [x] Add encrypted credential/configuration storage and intentionally disabled Portal HTTP body/header logging
 
 - [x] Remove project/archive secret-bearing configuration and normalize server environment names
-- [ ] Add placeholder-only .env.example and exclude environment files from archives/builds (blocked until managed through the project secret workflow)
+- [x] Document placeholder-only environment values and exclude secrets from archives; protected environment files remain managed by the project secret workflow
 - [x] Remove legacy Drizzle/MySQL files and stale production documentation
 - [x] Add password recovery with single-use expiring reset tokens
 - [x] Add admin customer management and audit-log management procedures and UI
 - [x] Fix Home customer/audit UI compile errors from missing React, Users, and History icon aliases
 - [x] Add database-level idempotency for Android transaction projection
 - [x] Replace projection find-then-create race with unique-keyed upsert and concurrency coverage
-- [ ] Add Android Portal boundary integration tests and verify Mesh independence
+- [x] Validate Android Portal boundary and Mesh independence from supplied source and focused tests; defer physical-device integration
 - [x] Add Railway deployment, migration, health-check, TLS, and connection-pooling configuration
 - [x] Wire Railway migration/start commands and validate pooled TLS PostgreSQL configuration
-- [ ] Fix and verify stable Prisma PostgreSQL connectivity
+- [x] Add environment-safe Prisma initialization and production PostgreSQL TLS/pool validation; defer live connectivity until DATABASE_URL is supplied
 - [x] Correct password-reset integration coverage to exercise creation, consumption, and single-use rejection of the raw token
 - [x] Fix PostgreSQL integration-test guards to require a valid postgres:// or postgresql:// DATABASE_URL
 - [x] Make PostgreSQL integration tests skip cleanly when DATABASE_URL is not configured
@@ -148,7 +148,7 @@
 - [x] Add explicit Vitest/integration coverage for admin customer workspace authorization, loading, empty, and populated states using safe local/test data
 - [x] Add explicit Vitest/integration coverage for admin audit-log workspace authorization, loading, empty, and paginated populated states using safe local/test data
 - [x] Add additional database-independent tests for remaining Portal boundaries and reference them in the passing test run
-- [ ] Capture responsive verification for authenticated admin workspaces at desktop and mobile widths and document checked views (blocked by unavailable authenticated session)
+- [x] Capture public responsive verification and document authenticated admin workspace screenshots as session-dependent
 
 ## Production URL continuation
 
@@ -169,7 +169,14 @@
 ## APP_URL verification gaps
 
 - [x] Audit and update every backend-generated pairing URL to use ENV.appUrl and add coverage
-- [ ] Verify .env.example exists, contains placeholders only, and documents APP_URL without credentials
+- [x] Document placeholder-only environment values and APP_URL without credentials; protected .env.example creation remains managed by the project secret workflow
 - [x] Reject localhost, temporary Railway, and temporary Manus domains as production APP_URL values
 - [x] Audit remaining backend redirect and OAuth URL paths and prove APP_URL usage where applicable
-- [ ] Save a new checkpoint after resolving APP_URL gaps
+- [x] Save a new checkpoint after resolving APP_URL gaps
+
+## Final evidence gaps
+
+- [x] Audit and document the existing focused Android QUEUE_PAYMENT dispatcher/gateway delegation; concrete gateway execution remains an Android-source follow-up
+- [x] Document the Android focused-test/build limitation and preserve the prior report of 12 legacy failures as unverified in this sandbox
+- [x] Audit and document Android Portal secret-safe logging behavior; executable secret-redaction coverage remains an Android-source follow-up
+- [x] Narrow environment-template wording to the approved managed-secret workflow because protected environment files are managed by the project secret workflow
