@@ -227,3 +227,14 @@
 - [x] Add regression coverage for no-OAUTH startup, no-secret logging, PORT binding, and APP_URL production behavior
 - [x] Run pnpm check, pnpm test, pnpm build, pnpm start, and GET /healthz verification
 - [x] Save a new checkpoint with the exact OAuth/runtime root cause
+
+
+## Native customer authentication production correction
+
+- [x] Remove Manus OAuth from the public customer authentication entry path
+- [x] Verify native registration, email verification, login, logout, session refresh, password reset, and password change flows
+- [x] Verify customer ownership and admin authorization remain server-enforced
+- [x] Verify native auth pages use the Bingwa Portal theme and required routes
+- [x] Add or repair regression tests proving production auth does not require OAUTH_SERVER_URL
+- [x] Run pnpm check, pnpm test, pnpm build, and production route/health verification
+- [x] Save a checkpoint for the native-auth production correction

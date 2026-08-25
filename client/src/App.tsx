@@ -8,16 +8,25 @@ import Home from "./pages/Home";
 import CustomerAuth from "./pages/CustomerAuth";
 import VerifyEmail from "./pages/VerifyEmail";
 import CustomerHome from "./pages/CustomerHome";
-import PasswordReset from "./pages/PasswordReset";
+import PasswordReset from "@/pages/PasswordReset";
+import ResendVerification from "@/pages/ResendVerification";
+import ChangePassword from "@/pages/ChangePassword";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
+      {/* Customer authentication is the public entry point. Admin operations remain isolated under /admin. */}
+      <Route path={"/"} component={CustomerAuth} />
+      <Route path={"/login"} component={CustomerAuth} />
+      <Route path={"/register"} component={CustomerAuth} />
       <Route path={"/customer/login"} component={CustomerAuth} />
       <Route path={"/customer"} component={CustomerHome} />
+      <Route path={"/admin"} component={Home} />
       <Route path={"/customer/register"} component={CustomerAuth} />
+      <Route path={"/forgot-password"} component={PasswordReset} />
+      <Route path={"/resend-verification"} component={ResendVerification} />
+      <Route path={"/change-password"} component={ChangePassword} />
       <Route path={"/customer/forgot-password"} component={PasswordReset} />
       <Route path={"/reset-password"} component={PasswordReset} />
       <Route path={"/verify-email"} component={VerifyEmail} />

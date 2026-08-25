@@ -22,7 +22,7 @@ export default function CustomerHome() {
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div><p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Bingwa Portal</p><h1 className="text-3xl font-semibold">Welcome, {account.data.name}</h1></div>
-          <Button variant="outline" onClick={() => logout.mutate()} disabled={logout.isPending}>Sign out</Button>
+          <div className="flex items-center gap-2"><a href="/change-password" className="rounded-md border border-border px-3 py-2 text-sm underline-offset-4 hover:underline">Change password</a><Button variant="outline" onClick={() => logout.mutate()} disabled={logout.isPending}>Sign out</Button></div>
         </div>
         <Card className="border-border/70 bg-card/90">
           <CardHeader><CardTitle>Account</CardTitle><CardDescription>Your customer identity is isolated from administrator access.</CardDescription></CardHeader>

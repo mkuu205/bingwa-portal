@@ -16,6 +16,7 @@ export default function CustomerAuth() {
   }, [location]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -34,8 +35,15 @@ export default function CustomerAuth() {
     event.preventDefault();
     setError(null);
     setMessage(null);
-    if (mode === "login") login.mutate({ email, password });
-    else register.mutate({ email, password, name, phone: phone || undefined });
+    if (mode === "login") {
+      login.mutate({ email, password });
+      return;
+    }
+    if (password !== confirmation) {
+      setError("Passwords do not match");
+      return;
+    }
+    register.mutate({ email, password, name, phone: phone || undefined });
   };
 
   const isPending = login.isPending || register.isPending;
@@ -61,11 +69,16 @@ export default function CustomerAuth() {
                   </>
                 )}
                 <div className="space-y-2"><Label htmlFor="email">Email</Label><Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required /></div>
-                <div className="space-y-2"><Label htmlFor="password">Password</Label><Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === "register" ? 12 : 1} /></div>
+                <div className="space-y-2"><Label htmlFor="password">Password</Label><Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={mode === "register" ? 12 : 1} maxLength={128} /></div>
+                {mode === "register" && <div className="space-y-2"><Label htmlFor="confirmation">Confirm password</Label><Input id="confirmation" type="password" value={confirmation} onChange={e => setConfirmation(e.target.value)} required minLength={12} maxLength={128} /></div>}
                 {message && <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">{message}</p>}
                 {error && <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
                 <Button type="submit" className="w-full" disabled={isPending}>{isPending ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}</Button>
               </form>
+              <div className="mt-5 flex items-center justify-between text-sm text-muted-foreground">
+                {mode === "login" ? <a href="/forgot-password" className="underline underline-offset-4">Forgot password?</a> : <a href="/resend-verification" className="underline underline-offset-4">Resend verification</a>}
+                <a href={mode === "login" ? "/register" : "/login"} className="underline underline-offset-4">{mode === "login" ? "Create an account" : "Back to sign in"}</a>
+              </div>
             </Tabs>
           </CardContent>
         </Card>

@@ -28,16 +28,16 @@ import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Overview", path: "/" },
-  { icon: Smartphone, label: "Devices", path: "/?view=devices" },
-  { icon: CircleDollarSign, label: "Transactions", path: "/?view=transactions" },
-  { icon: Command, label: "Commands", path: "/?view=commands" },
-  { icon: Server, label: "Services", path: "/?view=services" },
-  { icon: Activity, label: "Subscriptions", path: "/?view=subscriptions" },
-  { icon: PackageOpen, label: "Products", path: "/?view=products" },
-  { icon: Users, label: "Customers", path: "/?view=customers" },
-  { icon: History, label: "Audit log", path: "/?view=audit" },
-  { icon: Settings2, label: "Settings", path: "/?view=settings" },
+  { icon: LayoutDashboard, label: "Overview", path: "/admin" },
+  { icon: Smartphone, label: "Devices", path: "/admin?view=devices" },
+  { icon: CircleDollarSign, label: "Transactions", path: "/admin?view=transactions" },
+  { icon: Command, label: "Commands", path: "/admin?view=commands" },
+  { icon: Server, label: "Services", path: "/admin?view=services" },
+  { icon: Activity, label: "Subscriptions", path: "/admin?view=subscriptions" },
+  { icon: PackageOpen, label: "Products", path: "/admin?view=products" },
+  { icon: Users, label: "Customers", path: "/admin?view=customers" },
+  { icon: History, label: "Audit log", path: "/admin?view=audit" },
+  { icon: Settings2, label: "Settings", path: "/admin?view=settings" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

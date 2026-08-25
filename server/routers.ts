@@ -118,6 +118,18 @@ export const appRouter = router({
         if (!customer) throw new Error("Verification link is invalid or expired");
         return { verified: true as const, email: customer.email };
       }),
+    resendCustomerVerification: publicProcedure
+      .input(z.object({ email: z.string().email().max(320) }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("Database unavailable");
+        const customer = await db.customer.findUnique({ where: { email: customerEmail(input.email) } });
+        if (customer && !customer.emailVerifiedAt && customer.status === "ACTIVE") {
+          const token = await createEmailVerificationToken(customer.id);
+          await sendCustomerVerificationEmail({ email: customer.email, name: customer.name, token });
+        }
+        return { requested: true as const };
+      }),
     requestCustomerPasswordReset: publicProcedure
       .input(z.object({ email: z.string().email().max(320) }))
       .mutation(async ({ input }) => {
@@ -135,6 +147,21 @@ export const appRouter = router({
         const customer = await consumePasswordResetToken(input.token, input.password);
         if (!customer) throw new Error("Password reset link is invalid or expired");
         return { reset: true as const };
+      }),
+    changeCustomerPassword: customerProcedure
+      .input(z.object({ currentPassword: z.string().min(1).max(128), newPassword: z.string().min(12).max(128) }))
+      .mutation(async ({ input, ctx }) => {
+        if (input.currentPassword === input.newPassword) throw new Error("New password must be different");
+        if (!(await verifyPassword(input.currentPassword, ctx.customer.passwordHash))) throw new Error("Current password is incorrect");
+        const db = await getDb();
+        if (!db) throw new Error("Database unavailable");
+        const passwordHash = await hashPassword(input.newPassword);
+        await db.$transaction(async tx => {
+          await tx.customer.update({ where: { id: ctx.customer.id }, data: { passwordHash } });
+          await tx.customerSession.deleteMany({ where: { customerId: ctx.customer.id } });
+        });
+        await createCustomerSession(ctx.req, ctx.res, ctx.customer.id);
+        return { changed: true as const };
       }),
     customerAccount: customerProcedure.query(({ ctx }) => ({
       id: ctx.customer.id,
