@@ -180,3 +180,21 @@
 - [x] Document the Android focused-test/build limitation and preserve the prior report of 12 legacy failures as unverified in this sandbox
 - [x] Audit and document Android Portal secret-safe logging behavior; executable secret-redaction coverage remains an Android-source follow-up
 - [x] Narrow environment-template wording to the approved managed-secret workflow because protected environment files are managed by the project secret workflow
+
+## Android Portal pairing UI continuation
+
+- [x] Audit existing Android Portal screen, API/client, pairing contract, secure storage, navigation, device identity, sync workers, theme, and QR dependencies
+- [x] Centralize Android production Portal URL with configurable development override and default https://portal.bingwasokoni.top
+- [x] Implement native Portal screen with unpaired/paired connection states, Website card, QR, Open/Share/Copy actions, pairing form, and instructions
+- [x] Connect pairing form to the real Portal pairing contract and persist returned credential only after server confirmation
+- [x] Start existing Portal synchronization after successful pairing and reflect real heartbeat/connection state
+- [x] Add secure unpair behavior by clearing encrypted Portal credentials without touching unrelated transaction data
+- [x] Add focused Android pairing URL, pairing-state, and security tests without modifying Mesh or payment execution
+- [x] Run Android compile, focused tests, and debug APK packaging; document instrumentation/device-only blockers
+
+## Android pairing evidence follow-up
+
+- [x] Add code-visible evidence for Portal Website card, QR, Open/Share/Copy actions, instructions, and paired/unpaired states
+- [ ] Add focused tests for accepted pairing credential persistence and Portal sync scheduling
+- [ ] Add focused tests for secure unpair clearing only Portal credentials
+- [x] Document Android instrumentation/device-only blockers with exact Gradle task/status in ANDROID_PORTAL_VALIDATION.md
