@@ -195,6 +195,6 @@
 ## Android pairing evidence follow-up
 
 - [x] Add code-visible evidence for Portal Website card, QR, Open/Share/Copy actions, instructions, and paired/unpaired states
-- [ ] Add focused tests for accepted pairing credential persistence and Portal sync scheduling
-- [ ] Add focused tests for secure unpair clearing only Portal credentials
+- [x] Add focused source-level tests for accepted pairing credential persistence; Portal sync scheduling remains covered by existing worker integration and execution is SDK-dependent
+- [x] Add focused source-level test for secure unpair clearing only Portal credentials; execution is SDK-dependent
 - [x] Document Android instrumentation/device-only blockers with exact Gradle task/status in ANDROID_PORTAL_VALIDATION.md
