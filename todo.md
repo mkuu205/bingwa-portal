@@ -93,6 +93,8 @@
 - [x] Add command acknowledgement/result reporting adapters that preserve existing transaction execution ownership and queue serialization
 - [x] Add a Portal command-dispatch adapter that delegates only to an existing Android executor and reports unsupported commands safely
 - [ ] Wire Portal command lifecycle reporting into the real Android command execution path (queue delegation is wired; device runtime verification remains)
+- [ ] Exercise a supported Portal QUEUE_PAYMENT through the real PaymentQueuePortalGateway and PaymentQueueService boundary
+- [ ] Verify on a device that a polled Portal command is acknowledged, executed by the existing queue owner, and reported with the correct terminal state
 - [x] Bind Portal command dispatch to an existing Android execution owner for supported command types
 - [x] Extract a testable Portal queue gateway backed by the existing PaymentQueueService
 - [x] Add Hilt binding for PaymentQueuePortalGateway after the application graph reports a missing PortalQueueGateway binding
@@ -102,8 +104,8 @@
 - [ ] Run the complete Android suite and resolve or explicitly isolate the remaining legacy failures
 - [x] Fix existing PremiumPackageCard verified-icon compile regression blocking Android validation
 - [x] Keep Portal HTTP body/header logging disabled by design to prevent credential exposure
-- [ ] Add Android unit tests for Portal request authentication, retry/backoff, command idempotency, and secret redaction
-- [ ] Add Android integration coverage for supported Portal commands proving ACK, PaymentQueueService delegation, and terminal reporting
+- [ ] Add Android unit tests for Portal request authentication, retry/backoff, command idempotency, and secret redaction (retry, dispatcher, and projection coverage added; auth/idempotency transport cases remain)
+- [ ] Add Android integration coverage for supported Portal commands proving PaymentQueueService delegation and fail-closed validation; focused fake-gateway unit coverage passes
 - [x] Fix PortalCommandDispatcherTest Kotlin assertion syntax so focused Android tests compile
 
 - [x] Correct Android build-file path discovery after the module uses a different Gradle filename than expected
