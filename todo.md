@@ -207,4 +207,4 @@
 - [x] Make migration behavior explicit: Railway startup does not run migrations; `pnpm db:deploy` remains a separate explicit operation requiring DATABASE_URL
 - [x] Add focused runtime/healthcheck regression coverage
 - [x] Run pnpm check, pnpm test, pnpm build, production start, and GET /healthz verification
-- [ ] Save a new checkpoint with exact Railway root cause and files changed
+- [x] Save a new checkpoint with exact Railway root cause and files changed
