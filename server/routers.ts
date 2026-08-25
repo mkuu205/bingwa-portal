@@ -175,6 +175,74 @@ export const appRouter = router({
         });
       }),
   }),
+  products: router({
+    list: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.product.findMany({ orderBy: [{ status: "asc" }, { updatedAt: "desc" }] });
+    }),
+    create: adminProcedure.input(z.object({
+      productType: z.enum(["DEVICE", "SUBSCRIPTION"]),
+      name: z.string().trim().min(1).max(160),
+      slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(180),
+      description: z.string().trim().max(2000).optional(),
+      price: z.number().finite().nonnegative().optional(),
+      currency: z.string().trim().regex(/^[A-Z]{3}$/).default("KES"),
+      durationDays: z.number().int().positive().optional(),
+      deviceLimit: z.number().int().positive().optional(),
+    })).mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      return db.product.create({
+        data: {
+          productType: input.productType,
+          name: input.name,
+          slug: input.slug,
+          description: input.description || null,
+          price: input.price,
+          currency: input.currency,
+          durationDays: input.durationDays,
+          deviceLimit: input.deviceLimit,
+          createdBy: ctx.user.id,
+        },
+      });
+    }),
+    update: adminProcedure.input(z.object({
+      id: z.string().min(1),
+      productType: z.enum(["DEVICE", "SUBSCRIPTION"]).optional(),
+      name: z.string().trim().min(1).max(160).optional(),
+      slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(180).optional(),
+      description: z.string().trim().max(2000).nullable().optional(),
+      price: z.number().finite().nonnegative().nullable().optional(),
+      currency: z.string().trim().regex(/^[A-Z]{3}$/).optional(),
+      durationDays: z.number().int().positive().nullable().optional(),
+      deviceLimit: z.number().int().positive().nullable().optional(),
+      status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]).optional(),
+    })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const { id, ...data } = input;
+      const existing = await db.product.findUnique({ where: { id }, select: { id: true } });
+      if (!existing) return { success: false as const };
+      return { success: true as const, product: await db.product.update({ where: { id }, data }) };
+    }),
+    archive: adminProcedure.input(z.object({ id: z.string().min(1) })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const result = await db.product.updateMany({ where: { id: input.id }, data: { status: "ARCHIVED" } });
+      return { success: result.count > 0 };
+    }),
+    remove: adminProcedure.input(z.object({ id: z.string().min(1) })).mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const product = await db.product.findUnique({ where: { id: input.id }, select: { id: true, _count: { select: { subscriptions: true, payments: true, entitlements: true } } } });
+      if (!product) return { success: false as const, reason: "NOT_FOUND" as const };
+      const used = product._count.subscriptions + product._count.payments + product._count.entitlements;
+      if (used > 0) return { success: false as const, reason: "HAS_DEPENDENT_RECORDS" as const };
+      await db.product.delete({ where: { id: input.id } });
+      return { success: true as const };
+    }),
+  }),
   operations: router({
     snapshot: adminProcedure.query(() => getOperationsSnapshot()),
     transactions: adminProcedure.input(z.object({ query: z.string().optional() })).query(({ input }) => searchTransactions(input.query)),

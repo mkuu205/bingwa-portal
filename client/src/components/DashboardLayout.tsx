@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { Activity, CircleDollarSign, Command, LayoutDashboard, LogOut, PanelLeft, Server, Settings2, Smartphone } from "lucide-react";
+import { Activity, CircleDollarSign, Command, LayoutDashboard, LogOut, PackageOpen, PanelLeft, Server, Settings2, Smartphone } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -34,6 +34,7 @@ const menuItems = [
   { icon: Command, label: "Commands", path: "/?view=commands" },
   { icon: Server, label: "Services", path: "/?view=services" },
   { icon: Activity, label: "Subscriptions", path: "/?view=subscriptions" },
+  { icon: PackageOpen, label: "Products", path: "/?view=products" },
   { icon: Settings2, label: "Settings", path: "/?view=settings" },
 ];
 

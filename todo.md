@@ -25,25 +25,34 @@
 
 - [x] Read-only audit: determine the safest dedicated Portal-to-Android communication layer, excluding Bingwa Mesh, and document required pairing, heartbeat, command, synchronization, security, Android, and portal changes
 
-- [ ] Implement server-only PayFlow STK Push integration with secure secrets, normalized phone, safe errors, and no credential exposure
-- [ ] Add configurable Bingwa device/subscription products with owner-supplied pricing and admin management
+- [ ] Implement server-only PayFlow STK Push integration with secure secrets, normalized phone, safe errors, and no credential exposure (deferred: user will configure env later)
+- [x] Add configurable Bingwa device/subscription products with owner-supplied pricing and admin management
 - [ ] Add Bingwa payment purchase records and separate payment state machine with PayFlow identifiers
 - [ ] Add bounded server-side payment status verification and exactly-once subscription/device entitlement activation
 - [ ] Add idempotency protections against duplicate STK Push charges and refresh/double-click retries
 - [ ] Add customer checkout and safe pending/completed/failed/cancelled payment states
 - [ ] Add admin payment inspection and audited recovery boundaries
-- [ ] Add payment tests and PAYMENTS.md documentation referencing PayFlow API documentation
+- [ ] Add payment tests and PAYMENTS.md documentation referencing PayFlow API documentation (deferred: user will configure env later)
 
 - [x] Migrate Portal persistence from Drizzle/MySQL-compatible schema to PostgreSQL + Prisma while preserving existing operations behavior
 - [x] Regression-test existing admin authentication, device sync, command lifecycle, subscriptions, services, and transaction operations against a real PostgreSQL database
 - [x] Implement native customer authentication, email verification, and secure customer sessions; password recovery/change remains pending
-- [ ] Implement customer-to-device ownership and enforce customer/admin authorization boundaries
-- [ ] Implement secure single-use expiring QR/code pairing and device credential rotation without using Mesh credentials
+- [x] Implement customer-to-device ownership and enforce customer/admin authorization boundaries
+- [x] Implement secure single-use expiring QR/code pairing and device credential rotation without using Mesh credentials
 - [ ] Implement dedicated HTTPS Android Portal communication, heartbeat, command lease/ack/result, and credential storage while keeping Mesh independent
 - [ ] Implement Android transaction projection/outbox and safe Portal retry dispatch through the existing transaction pipeline
-- [ ] Implement configurable device/subscription products with no invented initial prices
-- [ ] Implement server-only PayFlow STK Push and status verification with idempotent payment records and transactional entitlement activation
+- [x] Implement configurable device/subscription products with no invented initial prices
+- [ ] Implement server-only PayFlow STK Push and status verification with idempotent payment records and transactional entitlement activation (deferred: user will configure env later)
 - [ ] Add payment/product/customer/security documentation, regression tests, integration tests, and responsive UI verification
+- [x] Implement admin product CRUD for device/subscription products with validation and authorization boundaries
+- [x] Add Portal product UI with listing, create, update, archive, loading, empty, and error states
+- [x] Add product authorization, persistence, and price-configuration integration coverage
+- [x] Add full product edit UI and mutations for all owner-supplied product fields with save states
+- [ ] Add per-product edit success/pending/error feedback and field-level validation
+- [ ] Mirror positive-integer/null duration and device-limit validation in the product editor
+- [ ] Add focused UI contract coverage for invalid product edit values
+- [x] Add Prisma/PostgreSQL product integration coverage for admin authorization and persistence round-trips
+- [x] Implement safe product delete behavior or document archive-only lifecycle when dependent records exist
 - [ ] Deliver the migrated production-ready Portal with required secrets and owner-supplied pricing clearly identified
 
 - [x] Add an authenticated `/customer` destination so successful customer login does not land on a 404
@@ -65,7 +74,7 @@
 
 - [x] Add Neon-backed pairing integration coverage for customer ownership, single-use consumption, wrong-secret rejection, already-owned-device protection, and credential rotation
 
-- [ ] Switch Android Portal sync authentication to the rotated DeviceCredential token returned by pairing, while preserving legacy enrollment-token compatibility only during the migration window
+- [x] Switch Android Portal sync authentication to the rotated DeviceCredential token returned by pairing, while preserving legacy enrollment-token compatibility only during the migration window
 - [x] Add Neon-backed pairing integration coverage for successful claim, single-use rejection, wrong-secret rejection, ownership conflict, and credential-authenticated sync
 
 - [x] Fix device-authentication compilation error by adding the database helper’s local SHA-256 token-hash function
