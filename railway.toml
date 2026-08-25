@@ -3,7 +3,8 @@ builder = "NIXPACKS"
 buildCommand = "pnpm install --frozen-lockfile && pnpm db:generate && pnpm build"
 
 [deploy]
-startCommand = "pnpm db:deploy && pnpm start"
+# Start liveness independently of database migrations. Run `pnpm db:deploy` as an explicit Railway migration operation after DATABASE_URL is configured.
+startCommand = "pnpm start"
 healthcheckPath = "/healthz"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"

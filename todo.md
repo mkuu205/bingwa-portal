@@ -198,3 +198,13 @@
 - [x] Add focused source-level tests for accepted pairing credential persistence; Portal sync scheduling remains covered by existing worker integration and execution is SDK-dependent
 - [x] Add focused source-level test for secure unpair clearing only Portal credentials; execution is SDK-dependent
 - [x] Document Android instrumentation/device-only blockers with exact Gradle task/status in ANDROID_PORTAL_VALIDATION.md
+
+## Railway runtime healthcheck continuation
+
+- [x] Diagnose Railway production startup and GET /healthz failure from source/config/logs
+- [x] Ensure production server binds to 0.0.0.0:$PORT and starts through pnpm start
+- [x] Ensure /healthz is registered before listening and does not require PostgreSQL or PayFlow
+- [x] Make migration behavior explicit: Railway startup does not run migrations; `pnpm db:deploy` remains a separate explicit operation requiring DATABASE_URL
+- [x] Add focused runtime/healthcheck regression coverage
+- [x] Run pnpm check, pnpm test, pnpm build, production start, and GET /healthz verification
+- [ ] Save a new checkpoint with exact Railway root cause and files changed

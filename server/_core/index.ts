@@ -9,7 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { registerHealthRoute } from "../health";
 import { serveStatic, setupVite } from "./vite";
-import { ENV, validateProductionAppUrl, validateProductionDatabaseUrl } from "./env";
+import { ENV, validateProductionAppUrl } from "./env";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -31,7 +31,6 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
-  validateProductionDatabaseUrl(ENV.databaseUrl);
   validateProductionAppUrl(ENV.appUrl);
   const app = express();
   const server = createServer(app);
@@ -70,16 +69,21 @@ async function startServer() {
     serveStatic(app);
   }
 
-  const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
+  const preferredPort = parseInt(process.env.PORT || "3000", 10);
+  const isProduction = process.env.NODE_ENV === "production";
+  const port = isProduction ? preferredPort : await findAvailablePort(preferredPort);
 
   if (port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
-  server.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}/`);
+  const host = process.env.HOST || (isProduction ? "0.0.0.0" : "127.0.0.1");
+  server.listen(port, host, () => {
+    console.log(`Server running on http://${host}:${port}/`);
   });
 }
 
-startServer().catch(console.error);
+startServer().catch(error => {
+  console.error("Server startup failed", error);
+  process.exitCode = 1;
+});
