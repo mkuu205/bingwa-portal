@@ -29,6 +29,7 @@ function Router() {
       <Route path={"/customer/subscription"} component={CustomerHome} />
       <Route path={"/customer/ussd"} component={CustomerHome} />
       <Route path={"/customer/settings"} component={CustomerHome} />
+      <Route path={"/customer/more"} component={CustomerHome} />
       <Route path={"/admin"} component={Home} />
       <Route path={"/admin/dashboard"} component={Home} />
       <Route path={"/admin/devices"} component={Home} />
