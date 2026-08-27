@@ -16,10 +16,11 @@ vi.mock("@/lib/trpc", () => ({
     operations: { snapshot: { useQuery: vi.fn(() => ({ data: { counts: {} }, isLoading: false, error: null })) } },
     admin: {
       customers: { useQuery: vi.fn(() => state.customers) },
+      customerDetails: { useQuery: vi.fn(() => ({ data: undefined, isLoading: false, error: null })) },
       auditLogs: { useQuery: vi.fn(() => state.auditLogs) },
       updateCustomerStatus: { useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })) },
     },
-    useUtils: vi.fn(() => ({ products: { list: { invalidate: vi.fn() } }, operations: { snapshot: { invalidate: vi.fn() } } })),
+    useUtils: vi.fn(() => ({ products: { list: { invalidate: vi.fn() } }, operations: { snapshot: { invalidate: vi.fn() } }, admin: { customers: { invalidate: vi.fn() } } })),
   },
 }));
 
@@ -40,7 +41,7 @@ describe("admin workspace UI states", () => {
 
     state.customers = { data: undefined, isLoading: false, error: new Error("offline") };
     rerender(<Home />);
-    expect(screen.getByText("Unable to load customers.")).toBeTruthy();
+    expect(screen.getByText("Unable to load customers: offline")).toBeTruthy();
 
     state.customers = { data: { items: [], total: 0, page: 0, pageSize: 50 }, isLoading: false, error: null };
     rerender(<Home />);

@@ -126,6 +126,10 @@ const emptySnapshot = {
     transactions: 0,
     pendingTransactions: 0,
     failedTransactions: 0,
+    completedTransactions: 0,
+    customerCount: 0,
+    subscriptionCount: 0,
+    serviceCount: 0,
     queuedCommands: 0,
   },
 };
@@ -142,12 +146,16 @@ export async function getOperationsSnapshot() {
     db.service.findMany({ orderBy: { serviceName: "asc" } }),
   ]);
 
-  const [deviceCount, onlineCount, transactionCount, pendingCount, failedCount, queuedCount] = await Promise.all([
+  const [deviceCount, onlineCount, transactionCount, pendingCount, failedCount, completedCount, customerCount, subscriptionCount, serviceCount, queuedCount] = await Promise.all([
     db.device.count(),
     db.device.count({ where: { status: { in: ["online", "idle"] } } }),
     db.transaction.count(),
     db.transaction.count({ where: { status: { in: ["PENDING", "PROCESSING", "WAITING"] } } }),
     db.transaction.count({ where: { status: "FAILED" } }),
+    db.transaction.count({ where: { status: "COMPLETED" } }),
+    db.customer.count(),
+    db.subscription.count(),
+    db.service.count(),
     db.command.count({ where: { status: { in: ["QUEUED", "DELIVERED", "ACKNOWLEDGED", "EXECUTING"] } } }),
   ]);
 
@@ -163,6 +171,10 @@ export async function getOperationsSnapshot() {
       transactions: transactionCount,
       pendingTransactions: pendingCount,
       failedTransactions: failedCount,
+      completedTransactions: completedCount,
+      customerCount,
+      subscriptionCount,
+      serviceCount,
       queuedCommands: queuedCount,
     },
   };

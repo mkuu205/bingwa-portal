@@ -29,13 +29,16 @@ describe("native customer authentication entry points", () => {
   it("keeps the native administrator workspace behind /admin", () => {
     expect(appSource).toContain('<Route path={"/admin"} component={Home} />');
     expect(appSource).toContain('<Route path={"/admin/dashboard"} component={Home} />');
+    for (const path of ["devices", "transactions", "commands", "services", "subscriptions", "products", "customers", "audit", "settings"]) {
+      expect(appSource).toContain(`<Route path={"/admin/${path}"} component={Home} />`);
+    }
     expect(navigationSource).toContain("<AdminLogin />");
     expect(adminLoginSource).toContain("trpc.auth.adminLogin.useMutation");
     expect(adminLoginSource).toContain("Administrator Login");
     expect(navigationSource).not.toContain("startLogin");
     expect(readFileSync(resolve(projectRoot, "client/src/pages/Home.tsx"), "utf8")).not.toContain("This workspace requires an administrator account or the operations database is unavailable.");
     expect(navigationSource).toContain('path: "/admin"');
-    expect(navigationSource).toContain('path: "/admin?view=devices"');
+    expect(navigationSource).toContain('path: "/admin/devices"');
     expect(navigationSource).not.toContain('path: "/?view=devices"');
   });
 });

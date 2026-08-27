@@ -29,7 +29,7 @@ describe("configurable product contract", () => {
 
   it("exposes Products through the existing admin navigation", () => {
     expect(navigationSource).toContain('label: "Products"');
-    expect(navigationSource).toContain('path: "/admin?view=products"');
+    expect(navigationSource).toContain('path: "/admin/products"');
     expect(homeSource).toContain('view === "products" ? <Products />');
   });
 });

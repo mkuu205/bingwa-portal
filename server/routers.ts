@@ -282,6 +282,26 @@ export const appRouter = router({
         ]);
         return { items, total, page: input.page, pageSize: take };
       }),
+    customerDetails: adminProcedure
+      .input(z.object({ id: z.string().min(1) }))
+      .query(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
+        const customer = await db.customer.findUnique({
+          where: { id: input.id },
+          select: {
+            id: true, email: true, name: true, phone: true, status: true, emailVerifiedAt: true, createdAt: true, lastSignedInAt: true,
+            devices: { orderBy: { updatedAt: "desc" }, select: { id: true, deviceId: true, deviceName: true, status: true, lastHeartbeatAt: true } },
+            subscriptions: { orderBy: { createdAt: "desc" }, select: { id: true, planName: true, status: true, tokenBalance: true, renewalAt: true, createdAt: true } },
+            payments: { orderBy: { createdAt: "desc" }, take: 50, select: { id: true, amount: true, status: true, createdAt: true, receiptCode: true } },
+          },
+        });
+        if (!customer) return null;
+        const transactions = customer.phone
+          ? await db.transaction.findMany({ where: { phoneNumber: customer.phone }, orderBy: { createdAt: "desc" }, take: 50, select: { id: true, packageName: true, amount: true, status: true, verificationStatus: true, createdAt: true } })
+          : [];
+        return { ...customer, transactions };
+      }),
     updateCustomerStatus: adminProcedure
       .input(z.object({ id: z.string().min(1), status: z.enum(["ACTIVE", "SUSPENDED"]) }))
       .mutation(async ({ input, ctx }) => {
@@ -438,6 +458,31 @@ export const appRouter = router({
       });
       return { enrollmentToken };
     }),
+    renameDevice: adminProcedure
+      .input(z.object({ id: z.number().int().positive(), deviceName: z.string().trim().min(1).max(160) }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
+        const result = await db.$transaction(async tx => {
+          const device = await tx.device.update({ where: { id: input.id }, data: { deviceName: input.deviceName } });
+          await tx.auditLog.create({ data: { actorType: "ADMIN", actorUserId: ctx.user.id, deviceId: device.id, action: "DEVICE_RENAMED", metadata: { deviceName: input.deviceName } } });
+          return device;
+        });
+        return { success: true as const, device: { id: result.id, deviceName: result.deviceName } };
+      }),
+    revokeDevice: adminProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
+        const result = await db.$transaction(async tx => {
+          const device = await tx.device.update({ where: { id: input.id }, data: { status: "blocked", enrollmentTokenHash: null } });
+          await tx.deviceCredential.updateMany({ where: { deviceId: device.id, revokedAt: null }, data: { revokedAt: new Date(), rotatedAt: new Date() } });
+          await tx.auditLog.create({ data: { actorType: "ADMIN", actorUserId: ctx.user.id, deviceId: device.id, action: "DEVICE_REVOKED" } });
+          return device;
+        });
+        return { success: true as const, device: { id: result.id, status: result.status } };
+      }),
     updateService: adminProcedure
       .input(z.object({ id: z.number().int().positive(), status: z.enum(["OPERATIONAL", "DEGRADED", "OUTAGE", "MAINTENANCE"]) }))
       .mutation(async ({ input }) => {

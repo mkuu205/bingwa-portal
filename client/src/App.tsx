@@ -24,6 +24,15 @@ function Router() {
       <Route path={"/customer"} component={CustomerHome} />
       <Route path={"/admin"} component={Home} />
       <Route path={"/admin/dashboard"} component={Home} />
+      <Route path={"/admin/devices"} component={Home} />
+      <Route path={"/admin/transactions"} component={Home} />
+      <Route path={"/admin/commands"} component={Home} />
+      <Route path={"/admin/services"} component={Home} />
+      <Route path={"/admin/subscriptions"} component={Home} />
+      <Route path={"/admin/products"} component={Home} />
+      <Route path={"/admin/customers"} component={Home} />
+      <Route path={"/admin/audit"} component={Home} />
+      <Route path={"/admin/settings"} component={Home} />
       <Route path={"/customer/register"} component={CustomerAuth} />
       <Route path={"/forgot-password"} component={PasswordReset} />
       <Route path={"/resend-verification"} component={ResendVerification} />
