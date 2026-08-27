@@ -46,6 +46,12 @@ vi.mock("@/lib/trpc", () => ({
       enqueueCustomerCommand: {
         useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false, data: undefined, error: null, isSuccess: false })),
       },
+      createPairingToken: {
+        useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false, data: undefined, error: null })),
+      },
+      unpairDevice: {
+        useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+      },
       customerLogout: {
         useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
       },
