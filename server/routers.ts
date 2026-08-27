@@ -239,7 +239,7 @@ export const appRouter = router({
           orderBy: { updatedAt: "desc" },
           select: {
             id: true, deviceId: true, deviceName: true, model: true, manufacturer: true,
-            androidVersion: true, appVersion: true, phoneNumber: true,
+            androidVersion: true, appVersion: true, phoneNumber: true, simSlot: true,
             automationSimConfigured: true, batteryPercent: true, automationEnabled: true, executionState: true, latencyMs: true,
             status: true, lastHeartbeatAt: true, lastSyncAt: true, enrolledAt: true,
           },
