@@ -1,14 +1,6 @@
 import type { CookieOptions, Request } from "express";
 import { ENV } from "./env";
 
-const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
-
-function isIpAddress(host: string) {
-  // Basic IPv4 check and IPv6 presence detection.
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return true;
-  return host.includes(":");
-}
-
 function isSecureRequest(req: Request) {
   if (req.protocol === "https") return true;
 
@@ -25,14 +17,12 @@ function isSecureRequest(req: Request) {
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
-  const appUrl = new URL(ENV.appUrl);
   const production = ENV.isProduction;
-  const requestHost = typeof req.get === "function" ? req.get("host") : undefined;
-  const hostname = req.hostname ?? requestHost?.split(":")[0] ?? "";
-  const localRequest = LOCAL_HOSTS.has(hostname) || isIpAddress(hostname);
 
   return {
-    domain: production && !localRequest ? appUrl.hostname : undefined,
+    // __Host-bingwa_customer_session and __Host-oauth_state must never carry a Domain attribute.
+    // Host-only cookies are correct for this single-origin Portal and prevent browsers from rejecting them.
+    domain: undefined,
     httpOnly: true,
     path: "/",
     sameSite: "none",
