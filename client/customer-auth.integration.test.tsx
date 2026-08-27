@@ -34,7 +34,7 @@ vi.mock("@/lib/trpc", () => ({
         useQuery: vi.fn(() => ({
           data: {
             account: { id: "customer-1", name: "Router Customer", email: "router@example.invalid", phone: "0712345678", emailVerifiedAt: new Date() },
-            devices: [], subscriptions: [], transactions: [], counts: { completed: 0, pending: 0, failed: 0 },
+            devices: [], subscriptions: [], plans: [], transactions: [], counts: { completed: 0, pending: 0, failed: 0 },
           },
           isLoading: false,
           error: null,

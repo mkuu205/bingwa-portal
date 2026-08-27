@@ -207,7 +207,7 @@ export const appRouter = router({
     dashboard: customerProcedure.query(async ({ ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");
-      const [devices, subscriptions, transactions] = await Promise.all([
+      const [devices, subscriptions, transactions, plans] = await Promise.all([
         db.device.findMany({
           where: { customerId: ctx.customer.id },
           orderBy: { updatedAt: "desc" },
@@ -223,6 +223,11 @@ export const appRouter = router({
           where: { device: { customerId: ctx.customer.id } }, orderBy: { createdAt: "desc" }, take: 50,
           select: { id: true, packageName: true, amount: true, status: true, verificationStatus: true, phoneNumber: true, createdAt: true, device: { select: { deviceName: true } } },
         }),
+        db.product.findMany({
+          where: { productType: "SUBSCRIPTION", status: "ACTIVE" },
+          orderBy: { updatedAt: "desc" },
+          select: { id: true, name: true, description: true, price: true, currency: true, durationDays: true, deviceLimit: true },
+        }),
       ]);
       const counts = { completed: 0, pending: 0, failed: 0 };
       for (const transaction of transactions) {
@@ -234,6 +239,7 @@ export const appRouter = router({
         account: { id: ctx.customer.id, email: ctx.customer.email, name: ctx.customer.name, phone: ctx.customer.phone, emailVerifiedAt: ctx.customer.emailVerifiedAt },
         devices,
         subscriptions,
+        plans: plans.map(plan => ({ ...plan, price: plan.price?.toString() ?? null })),
         transactions: transactions.map(transaction => ({ ...transaction, amount: transaction.amount.toString() })),
         counts,
       };
