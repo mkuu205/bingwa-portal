@@ -33,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
+import { DATABASE_UNAVAILABLE_ERR_MSG, NOT_ADMIN_ERR_MSG } from "@shared/const";
 
 const formatDate = (value: unknown) => {
   if (!value) return "—";
@@ -72,6 +73,12 @@ function Overview({ data, isLoading, error }: { data: any; isLoading: boolean; e
   const counts = data?.counts;
   const recentTransactions = data?.transactions?.slice(0, 6) ?? [];
   const recentDevices = data?.devices?.slice(0, 4) ?? [];
+  const errorMessage = error instanceof Error ? error.message : "";
+  const errorBanner = errorMessage === DATABASE_UNAVAILABLE_ERR_MSG
+    ? "The operations database cannot be reached. Verify PostgreSQL connectivity and migration state."
+    : errorMessage === NOT_ADMIN_ERR_MSG
+      ? "Administrator access is required to view operations data."
+      : "Operations data is temporarily unavailable. Please retry shortly.";
   return <div className="space-y-6">
     <section className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-br from-[#13284a] via-[#0e1b35] to-[#09111f] p-6 shadow-[0_24px_90px_-35px_rgba(44,128,255,.5)] md:p-8">
       <div className="absolute -right-24 -top-28 h-72 w-72 rounded-full bg-cyan-400/10 blur-3xl" />
@@ -80,7 +87,7 @@ function Overview({ data, isLoading, error }: { data: any; isLoading: boolean; e
         <div className="flex items-center gap-3 text-xs text-slate-400"><div className="flex items-center gap-2 rounded-full border border-white/10 bg-black/10 px-3 py-2"><ShieldCheck className="h-4 w-4 text-emerald-300" /> Admin control enabled</div></div>
       </div>
     </section>
-    {error ? <div className="flex items-center gap-3 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200"><AlertTriangle className="h-4 w-4" /> This workspace requires an administrator account or the operations database is unavailable.</div> : null}
+    {error ? <div role="alert" className="flex items-center gap-3 rounded-2xl border border-rose-400/20 bg-rose-400/10 px-4 py-3 text-sm text-rose-200"><AlertTriangle className="h-4 w-4" /> {errorBanner}</div> : null}
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5"><MetricCard label="Android fleet" value={isLoading ? "—" : counts?.devices ?? 0} detail={`${counts?.onlineDevices ?? 0} online now`} icon={Smartphone} accent="border-cyan-400/20 bg-cyan-400/10 text-cyan-300" /><MetricCard label="Open payments" value={isLoading ? "—" : counts?.pendingTransactions ?? 0} detail="Awaiting execution or review" icon={CircleDollarSign} accent="border-violet-400/20 bg-violet-400/10 text-violet-300" /><MetricCard label="Failed payments" value={isLoading ? "—" : counts?.failedTransactions ?? 0} detail="Requires operator attention" icon={XCircle} accent="border-rose-400/20 bg-rose-400/10 text-rose-300" /><MetricCard label="Command queue" value={isLoading ? "—" : counts?.queuedCommands ?? 0} detail="Queued or in delivery" icon={Command} accent="border-amber-400/20 bg-amber-400/10 text-amber-300" /><MetricCard label="Sync posture" value={isLoading ? "—" : "Ready"} detail="Device heartbeat contract" icon={Wifi} accent="border-emerald-400/20 bg-emerald-400/10 text-emerald-300" /></div>
     <div className="grid gap-5 xl:grid-cols-[1.3fr_.7fr]">
       <Card className="border-white/[0.08] bg-white/[0.035]"><CardHeader className="flex-row items-center justify-between border-b border-white/[0.07] px-5 py-4"><div><CardTitle className="text-base text-white">Payment activity</CardTitle><p className="mt-1 text-xs text-slate-500">Latest records synchronized from Android devices</p></div><CircleDollarSign className="h-4 w-4 text-slate-500" /></CardHeader><CardContent className="p-0">{recentTransactions.length ? <div className="divide-y divide-white/[0.06]">{recentTransactions.map((tx: any) => <div key={tx.id} className="flex items-center justify-between gap-4 px-5 py-4"><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-200">{tx.customerName || tx.phoneNumber}</p><p className="mt-1 truncate text-xs text-slate-500">{tx.packageName} · {tx.paymentMethod || "Payment"}</p></div><div className="text-right"><p className="text-sm font-semibold text-white">KES {tx.amount}</p><Badge variant="outline" className={`mt-1 ${statusTone(tx.status)}`}>{tx.status}</Badge></div></div>)}</div> : <div className="p-5"><EmptyState icon={CircleDollarSign} title="No payment records yet" body="Synchronized transactions will appear here as enrolled Android devices report activity." /></div>}</CardContent></Card>

@@ -1,6 +1,7 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { Customer, User } from "@prisma/client";
 import { getCustomerFromRequest } from "../customerAuth";
+import { getDatabaseStatus, type DatabaseStatus } from "../db";
 import { getAdminFromRequest } from "../adminAuth";
 import { sdk } from "./sdk";
 
@@ -9,6 +10,7 @@ export type TrpcContext = {
   res: CreateExpressContextOptions["res"];
   user: User | null;
   customer?: Customer | null;
+  databaseStatus: DatabaseStatus;
 };
 
 export async function createContext(
@@ -29,6 +31,8 @@ export async function createContext(
     // Native admin authentication remains optional for public/customer requests.
   }
 
+  const databaseStatus = await getDatabaseStatus();
+
   let customer = null;
   try {
     customer = await getCustomerFromRequest(opts.req);
@@ -42,5 +46,6 @@ export async function createContext(
     res: opts.res,
     user,
     customer,
+    databaseStatus,
   };
 }

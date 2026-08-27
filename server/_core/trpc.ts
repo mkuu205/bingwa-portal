@@ -1,4 +1,4 @@
-import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from '@shared/const';
+import { DATABASE_UNAVAILABLE_ERR_MSG, NOT_ADMIN_ERR_MSG, NOT_AUTHENTICATED_ERR_MSG } from '@shared/const';
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
@@ -14,7 +14,7 @@ const requireUser = t.middleware(async opts => {
   const { ctx, next } = opts;
 
   if (!ctx.user) {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    throw new TRPCError({ code: "UNAUTHORIZED", message: NOT_AUTHENTICATED_ERR_MSG });
   }
 
   return next({
@@ -30,7 +30,7 @@ export const protectedProcedure = t.procedure.use(requireUser);
 const requireCustomer = t.middleware(async opts => {
   const { ctx, next } = opts;
   if (!ctx.customer || ctx.customer.status !== "ACTIVE") {
-    throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    throw new TRPCError({ code: "UNAUTHORIZED", message: NOT_AUTHENTICATED_ERR_MSG });
   }
   return next({
     ctx: {
@@ -46,8 +46,14 @@ export const adminProcedure = t.procedure.use(
   t.middleware(async opts => {
     const { ctx, next } = opts;
 
-    if (!ctx.user || ctx.user.role !== 'admin') {
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: NOT_AUTHENTICATED_ERR_MSG });
+    }
+    if (ctx.user.role !== 'admin') {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+    }
+    if (ctx.databaseStatus !== "up") {
+      throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
     }
 
     return next({

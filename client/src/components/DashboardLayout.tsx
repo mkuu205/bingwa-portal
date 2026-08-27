@@ -1,5 +1,6 @@
 import AdminLogin from "@/pages/AdminLogin";
 import { trpc } from "@/lib/trpc";
+import { DATABASE_UNAVAILABLE_ERR_MSG, NOT_ADMIN_ERR_MSG } from "@shared/const";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -71,6 +72,12 @@ export default function DashboardLayout({
   }
 
   if (!user) {
+    if (adminQuery.error instanceof Error && adminQuery.error.message === DATABASE_UNAVAILABLE_ERR_MSG) {
+      return <div className="flex min-h-screen items-center justify-center bg-[#08111f] px-4 text-center text-rose-200"><div><p className="text-xs font-medium uppercase tracking-[0.2em] text-rose-300">Database unavailable</p><h1 className="mt-3 text-2xl font-semibold text-white">The operations database cannot be reached.</h1><p className="mt-2 max-w-md text-sm text-slate-400">Verify the production PostgreSQL connection and migration state, then retry.</p></div></div>;
+    }
+    if (adminQuery.error instanceof Error && adminQuery.error.message === NOT_ADMIN_ERR_MSG) {
+      return <div className="flex min-h-screen items-center justify-center bg-[#08111f] px-4 text-center text-rose-200"><div><p className="text-xs font-medium uppercase tracking-[0.2em] text-rose-300">Access denied</p><h1 className="mt-3 text-2xl font-semibold text-white">Administrator access is required.</h1><p className="mt-2 max-w-md text-sm text-slate-400">This customer account cannot access the operations workspace.</p></div></div>;
+    }
     return <AdminLogin />;
   }
 

@@ -9,7 +9,7 @@ import { ENV } from "./_core/env";
 import { prisma } from "./prisma";
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
-const hasValidPostgresUrl = /^(postgresql|postgres):\/\//.test(process.env.DATABASE_URL ?? "");
+const hasValidPostgresUrl = () => /^(postgresql|postgres):\/\//.test(process.env.DATABASE_URL ?? "");
 
 export type InsertUser = {
   openId: string;
@@ -20,8 +20,20 @@ export type InsertUser = {
   lastSignedIn?: Date;
 };
 
+export type DatabaseStatus = "up" | "down" | "not_configured";
+
+export async function getDatabaseStatus(): Promise<DatabaseStatus> {
+  if (!hasValidPostgresUrl()) return "not_configured";
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    return "up";
+  } catch {
+    return "down";
+  }
+}
+
 export async function getDb() {
-  if (!hasValidPostgresUrl) {
+  if (!hasValidPostgresUrl()) {
     if (process.env.NODE_ENV === "production") {
       throw new Error("DATABASE_URL must use the PostgreSQL protocol in production");
     }

@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { registerHealthRoute } from "../health";
 import { bootstrapAdminFromEnvironment } from "../adminAuth";
+import { getDatabaseStatus } from "../db";
 import { serveStatic, setupVite } from "./vite";
 import { ENV, validateProductionAppUrl } from "./env";
 
@@ -33,7 +34,22 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 
 async function startServer() {
   validateProductionAppUrl(ENV.appUrl);
-  if (ENV.databaseUrl) await bootstrapAdminFromEnvironment();
+  console.log(`[Config] APP_URL configured: ${ENV.appUrl ? "yes" : "no"}`);
+  console.log(`[Config] DATABASE_URL configured: ${ENV.databaseUrl ? "yes" : "no"}`);
+  console.log(`[Config] Native authentication: enabled`);
+  console.log(`[Config] PayFlow: ${ENV.payflowApiKey && ENV.payflowApiSecret ? "configured" : "not configured"}`);
+  console.log(`[Config] OAuth: ${ENV.oAuthServerUrl ? "optional/configured" : "optional/not configured"}`);
+  const databaseStatus = await getDatabaseStatus();
+  console.log(`[Config] DATABASE connection attempted: ${databaseStatus !== "not_configured" ? "yes" : "no"}`);
+  console.log(`[Config] DATABASE connection: ${databaseStatus === "up" ? "successful" : databaseStatus === "down" ? "failed" : "not configured"}`);
+  if (ENV.databaseUrl) {
+    try {
+      const bootstrap = await bootstrapAdminFromEnvironment();
+      console.log(`[Admin] Bootstrap: ${bootstrap.bootstrapped ? "created" : bootstrap.reason === "not_configured" ? "not configured" : "existing"}`);
+    } catch (error) {
+      console.error("[Admin] Bootstrap failed:", error instanceof Error ? error.message : "unknown error");
+    }
+  }
   const app = express();
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads
@@ -81,7 +97,7 @@ async function startServer() {
 
   const host = process.env.HOST || (isProduction ? "0.0.0.0" : "127.0.0.1");
   server.listen(port, host, () => {
-    console.log(`Server running on http://${host}:${port}/`);
+    console.log(`[Server] Listening on configured PORT ${port}`);
   });
 }
 

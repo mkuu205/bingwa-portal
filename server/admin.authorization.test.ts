@@ -20,10 +20,18 @@ function contextFor(role: "admin" | "user"): TrpcContext {
     user,
     req: { protocol: "https", headers: {} } as TrpcContext["req"],
     res: {} as TrpcContext["res"],
+    databaseStatus: "up",
   };
 }
 
 describe("admin customer and audit workspace authorization", () => {
+  it("requires authentication for the administrator workspace", async () => {
+    const context = contextFor("user");
+    context.user = null;
+    const caller = appRouter.createCaller(context);
+    await expect(caller.admin.customers({ page: 0 })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
   it("blocks a customer from listing the customer workspace", async () => {
     const caller = appRouter.createCaller(contextFor("user"));
     await expect(caller.admin.customers({ page: 0 })).rejects.toMatchObject({ code: "FORBIDDEN" });

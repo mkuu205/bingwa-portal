@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Prisma, type PaymentMethod, type TransactionStatus, type VerificationStatus } from "@prisma/client";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { DATABASE_UNAVAILABLE_ERR_MSG, NOT_ADMIN_ERR_MSG } from "@shared/const";
 import {
   getDb,
   authenticateDevice,
@@ -65,11 +67,16 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
-    adminMe: publicProcedure.query(opts => opts.ctx.user?.role === "admin" ? ({ id: opts.ctx.user.id, openId: opts.ctx.user.openId, name: opts.ctx.user.name, email: opts.ctx.user.email, role: opts.ctx.user.role }) : null),
+    adminMe: publicProcedure.query(opts => {
+      if (opts.ctx.databaseStatus !== "up") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
+      if (!opts.ctx.user && opts.ctx.customer) throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+      return opts.ctx.user?.role === "admin" ? ({ id: opts.ctx.user.id, openId: opts.ctx.user.openId, name: opts.ctx.user.name, email: opts.ctx.user.email, role: opts.ctx.user.role }) : null;
+    }),
     customerMe: publicProcedure.query(opts => opts.ctx.customer ?? null),
     adminLogin: publicProcedure
       .input(z.object({ email: z.string().email().max(320), password: z.string().min(1).max(128) }))
       .mutation(async ({ input, ctx }) => {
+        if (ctx.databaseStatus !== "up") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
         const user = await authenticateAdmin(input.email, input.password);
         if (!user) throw new Error("Invalid administrator credentials");
         await createAdminSession(ctx.req, ctx.res, user.id);
@@ -370,7 +377,13 @@ export const appRouter = router({
     }),
   }),
   operations: router({
-    snapshot: adminProcedure.query(() => getOperationsSnapshot()),
+    snapshot: adminProcedure.query(async () => {
+      try {
+        return await getOperationsSnapshot();
+      } catch {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
+      }
+    }),
     transactions: adminProcedure.input(z.object({ query: z.string().optional() })).query(({ input }) => searchTransactions(input.query)),
     enqueueCommand: adminProcedure
       .input(

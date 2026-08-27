@@ -33,6 +33,7 @@ describe("native customer authentication entry points", () => {
     expect(adminLoginSource).toContain("trpc.auth.adminLogin.useMutation");
     expect(adminLoginSource).toContain("Administrator Login");
     expect(navigationSource).not.toContain("startLogin");
+    expect(readFileSync(resolve(projectRoot, "client/src/pages/Home.tsx"), "utf8")).not.toContain("This workspace requires an administrator account or the operations database is unavailable.");
     expect(navigationSource).toContain('path: "/admin"');
     expect(navigationSource).toContain('path: "/admin?view=devices"');
     expect(navigationSource).not.toContain('path: "/?view=devices"');
