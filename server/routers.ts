@@ -288,6 +288,41 @@ export const appRouter = router({
           throw new TRPCError({ code: "BAD_GATEWAY", message: "Unable to start Payflow payment" });
         }
       }),
+    checkPayment: customerProcedure
+      .input(z.object({ paymentId: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
+        const payment = await db.bingwaPayment.findFirst({ where: { id: input.paymentId, customerId: ctx.customer.id }, include: { product: true, entitlement: true } });
+        if (!payment) throw new TRPCError({ code: "NOT_FOUND", message: "Payment not found" });
+        if (!payment.checkoutRequestId) throw new TRPCError({ code: "BAD_REQUEST", message: "Payment has not started" });
+        if (payment.status === "COMPLETED" && payment.entitlement) return { status: "COMPLETED" as const, subscriptionId: payment.entitlement.subscriptionId };
+        if (!ENV.payflowApiKey || !ENV.payflowApiSecret) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Payflow is not configured" });
+        try {
+          const response = await fetch(`${ENV.payflowBaseUrl.replace(/\/$/, "")}/status.php`, { method: "POST", headers: { "X-API-Key": ENV.payflowApiKey, "X-API-Secret": ENV.payflowApiSecret, "Content-Type": "application/json" }, body: JSON.stringify({ checkout_request_id: payment.checkoutRequestId }) });
+          const result = await response.json() as { success?: boolean; status?: string; mpesa_receipt?: string; message?: string };
+          if (!response.ok || !result.success) throw new Error(result.message || "Payflow status request failed");
+          const status = String(result.status || "pending").toLowerCase();
+          if (status === "completed") {
+            const activated = await db.$transaction(async tx => {
+              const current = await tx.bingwaPayment.findUnique({ where: { id: payment.id }, include: { entitlement: true } });
+              if (!current) throw new Error("Payment disappeared");
+              if (current.status === "COMPLETED" && current.entitlement) return current.entitlement;
+              const subscription = await tx.subscription.create({ data: { customerId: payment.customerId, productId: payment.productId, storeName: "Bingwa Portal", ownerPhone: payment.phone, planName: payment.product.name, status: "ACTIVE", renewalAt: payment.product.durationDays ? new Date(Date.now() + payment.product.durationDays * 86400000) : null } });
+              const entitlement = await tx.entitlementGrant.create({ data: { paymentId: payment.id, customerId: payment.customerId, productId: payment.productId, subscriptionId: subscription.id } });
+              await tx.bingwaPayment.update({ where: { id: payment.id }, data: { status: "COMPLETED", receiptCode: result.mpesa_receipt ?? null, completedAt: new Date(), activatedAt: new Date(), statusCheckedAt: new Date() } });
+              await tx.auditLog.create({ data: { actorType: "CUSTOMER", actorCustomerId: payment.customerId, paymentId: payment.id, action: "SUBSCRIPTION_ACTIVATED", metadata: { subscriptionId: subscription.id, productId: payment.productId } } });
+              return entitlement;
+            });
+            return { status: "COMPLETED" as const, subscriptionId: activated.subscriptionId };
+          }
+          const nextStatus = status === "failed" ? "FAILED" : status === "cancelled" ? "CANCELLED" : "PENDING";
+          await db.bingwaPayment.update({ where: { id: payment.id }, data: { status: nextStatus, statusCheckedAt: new Date(), failureMessage: nextStatus === "FAILED" || nextStatus === "CANCELLED" ? result.message ?? null : undefined } });
+          return { status: nextStatus as "PENDING" | "FAILED" | "CANCELLED" };
+        } catch {
+          throw new TRPCError({ code: "BAD_GATEWAY", message: "Unable to verify Payflow payment" });
+        }
+      }),
     enqueueCustomerCommand: customerProcedure
       .input(z.object({ deviceId: z.number().int().positive(), commandType: z.string().trim().min(1).max(80), payload: z.record(z.string(), z.unknown()).optional() }))
       .mutation(async ({ input, ctx }) => {
