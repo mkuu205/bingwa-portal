@@ -78,7 +78,7 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         if (ctx.databaseStatus !== "up") throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
         const user = await authenticateAdmin(input.email, input.password);
-        if (!user) throw new Error("Invalid administrator credentials");
+        if (!user) throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid administrator credentials" });
         await createAdminSession(ctx.req, ctx.res, user.id);
         return { success: true as const, admin: { id: user.id, name: user.name, email: user.email, role: user.role } };
       }),
@@ -129,10 +129,10 @@ export const appRouter = router({
       .input(z.object({ email: z.string().email().max(320), password: z.string().min(1).max(128) }))
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
-        if (!db) throw new Error("Database unavailable");
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
         const customer = await db.customer.findUnique({ where: { email: customerEmail(input.email) } });
         if (!customer || !(await verifyPassword(input.password, customer.passwordHash)) || !customer.emailVerifiedAt || customer.status !== "ACTIVE") {
-          throw new Error("Invalid credentials or unverified email");
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "Invalid credentials or unverified email" });
         }
         const lastSignedIn = new Date();
         await db.customer.update({ where: { id: customer.id }, data: { lastSignedInAt: lastSignedIn } });
