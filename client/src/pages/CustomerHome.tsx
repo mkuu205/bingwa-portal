@@ -28,7 +28,7 @@ export default function CustomerHome() {
   const [ussdCode, setUssdCode] = useState("");
   const [simSlot, setSimSlot] = useState("1");
   const [transactionFilter, setTransactionFilter] = useState<"ALL" | "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED">("ALL");
-  const dashboard = trpc.auth.dashboard.useQuery(undefined, { refetchInterval: 30000 });
+  const dashboard = trpc.auth.dashboard.useQuery(undefined, { refetchInterval: 30000, retry: false });
   const logout = trpc.auth.customerLogout.useMutation({ onSuccess: () => navigate("/customer/login") });
   const activatePlan = trpc.auth.activatePlan.useMutation();
   const checkPayment = trpc.auth.checkPayment.useMutation({ onSuccess: result => { if (result.status === "COMPLETED") dashboard.refetch(); } });
@@ -55,8 +55,8 @@ export default function CustomerHome() {
   );
   const online = selectedDevice?.lastHeartbeatAt && Date.now() - new Date(selectedDevice.lastHeartbeatAt).getTime() < 5 * 60 * 1000;
 
-  if (dashboard.isLoading) return <main className="min-h-screen bg-background p-6 text-foreground">Loading your workspace…</main>;
-  if (!dashboard.data) return null;
+  if (dashboard.isLoading) return <main className="min-h-screen bg-background p-6 text-foreground"><div className="mx-auto max-w-md rounded-2xl border border-border bg-card p-6 text-center"><p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Bingwa Portal</p><h1 className="mt-3 text-xl font-semibold">Opening your workspace</h1><p className="mt-2 text-sm text-muted-foreground">Checking your customer session and connected-device data…</p></div></main>;
+  if (dashboard.error || !dashboard.data) return <main className="min-h-screen bg-background p-6 text-foreground"><div className="mx-auto max-w-md rounded-2xl border border-border bg-card p-6 text-center"><p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Bingwa Portal</p><h1 className="mt-3 text-xl font-semibold">We could not open your workspace</h1><p className="mt-2 text-sm text-muted-foreground">{dashboard.error?.message ?? "Your customer session may have expired."}</p><Button className="mt-5" onClick={() => navigate("/customer/login")}>Return to sign in</Button><Button variant="outline" className="mt-3 w-full" onClick={() => dashboard.refetch()}>Try again</Button></div></main>;
 
   const { account, devices, transactions, subscriptions, plans, devicePlans, counts } = dashboard.data;
   const hasPlan = Boolean(activeSubscription);
