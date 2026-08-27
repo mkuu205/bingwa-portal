@@ -264,7 +264,7 @@ export const appRouter = router({
         }),
       ]);
       const devicePlans = devices.length === 0 ? [] : await db.deviceDataPlan.findMany({
-        where: { deviceId: { in: devices.map(device => device.id) }, isActive: true },
+        where: { deviceId: { in: devices.map(device => device.id) } },
         orderBy: { updatedAt: "desc" },
       });
       const counts = { completed: 0, pending: 0, scheduled: 0, failed: 0 };
