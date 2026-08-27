@@ -735,14 +735,15 @@ export const appRouter = router({
           deviceToken: z.string().min(8).optional(),
           enrollmentToken: z.string().min(8).optional(),
           commandId: z.number().int().positive(),
-          status: z.enum(["ACKNOWLEDGED", "EXECUTING", "SUCCEEDED", "FAILED", "EXPIRED"]),
+          status: z.enum(["ACKNOWLEDGED", "EXECUTING", "SUCCEEDED", "COMPLETED", "FAILED", "EXPIRED"]),
           resultMessage: z.string().max(1000).optional(),
         }).refine(input => input.deviceToken || input.enrollmentToken, { message: "A device credential is required" })
       )
       .mutation(async ({ input }) => {
         const device = await authenticateDevice(input.deviceId, input.deviceToken ?? input.enrollmentToken ?? "");
         if (!device) return { accepted: false as const, reason: "INVALID_DEVICE_CREDENTIALS" };
-        const updated = await updateDeviceCommandResult(device.id, input.commandId, input.status, input.resultMessage);
+        const normalizedStatus = input.status === "COMPLETED" ? "SUCCEEDED" : input.status;
+        const updated = await updateDeviceCommandResult(device.id, input.commandId, normalizedStatus, input.resultMessage);
         return { accepted: updated as boolean };
       }),
     heartbeat: publicProcedure
