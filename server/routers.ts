@@ -247,6 +247,7 @@ export const appRouter = router({
         subscriptions,
         plans: plans.map(plan => ({ ...plan, price: plan.price?.toString() ?? null })),
         transactions: transactions.map(transaction => ({ ...transaction, amount: transaction.amount.toString() })),
+        tokens: subscriptions.reduce((total, subscription) => total + subscription.tokenBalance, 0),
         counts,
       };
     }),
@@ -286,6 +287,18 @@ export const appRouter = router({
           await db.bingwaPayment.update({ where: { id: payment.id }, data: { status: "FAILED", failureMessage: error instanceof Error ? error.message : "Payflow request failed" } });
           throw new TRPCError({ code: "BAD_GATEWAY", message: "Unable to start Payflow payment" });
         }
+      }),
+    enqueueCustomerCommand: customerProcedure
+      .input(z.object({ deviceId: z.number().int().positive(), commandType: z.string().trim().min(1).max(80), payload: z.record(z.string(), z.unknown()).optional() }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
+        const device = await db.device.findFirst({ where: { id: input.deviceId, customerId: ctx.customer.id }, select: { id: true, status: true } });
+        if (!device) throw new TRPCError({ code: "NOT_FOUND", message: "Device not found" });
+        if (device.status === "blocked") throw new TRPCError({ code: "FORBIDDEN", message: "This device is revoked" });
+        const command = await db.command.create({ data: { deviceId: device.id, commandType: input.commandType, payload: input.payload as Prisma.InputJsonValue | undefined, expiresAt: new Date(Date.now() + 10 * 60 * 1000) }, select: { id: true, status: true } });
+        await db.auditLog.create({ data: { actorType: "CUSTOMER", actorCustomerId: ctx.customer.id, deviceId: device.id, action: "CUSTOMER_COMMAND_QUEUED", metadata: { commandType: input.commandType, commandId: command.id } } });
+        return command;
       }),
     devices: customerProcedure.query(async ({ ctx }) => {
       const db = await getDb();
