@@ -19,6 +19,9 @@ const redirectToLoginIfUnauthorized = (error: unknown) => {
   const isUnauthorized = error.message === UNAUTHED_ERR_MSG;
 
   if (!isUnauthorized) return;
+  const path = window.location.pathname;
+  const isNativeAuthPath = path === "/" || path.startsWith("/login") || path.startsWith("/register") || path.startsWith("/customer") || path.startsWith("/forgot-password") || path.startsWith("/reset-password") || path.startsWith("/verify-email") || path.startsWith("/resend-verification") || path.startsWith("/change-password");
+  if (isNativeAuthPath || path === "/admin" || path.startsWith("/admin/")) return;
 
   startLogin();
 };

@@ -27,6 +27,8 @@ Use the deployment secret manager. `.env.example` is a placeholder template only
 | `JWT_SECRET` | Server | Manus/session signing secret |
 | `CUSTOMER_SESSION_SECRET` | Server | Native customer session secret |
 | `APP_URL` | Server | Canonical HTTPS origin used in customer links; production is `https://portal.bingwasokoni.top` |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Server | One-time native administrator bootstrap credentials; `ADMIN_PASSWORD` must be non-empty and at most 128 characters and is hashed before storage |
+| `ADMIN_NAME` | Server | Optional display name for a newly bootstrapped administrator |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` | Server | Email verification and password recovery |
 | `PAYFLOW_BASE_URL` | Server only, deferred | PayFlow API base URL; no live integration is enabled yet |
 | `PAYFLOW_API_KEY` | Server only, deferred | PayFlow authentication key |
@@ -48,7 +50,7 @@ The schema includes customers, customer sessions, email verification tokens, dev
 
 ## 4. First administrator login
 
-Complete Manus OAuth using the project owner account. The existing user upsert path promotes the configured owner identity to `admin`; other users default to `user`. Administrator procedures are protected by the server-side admin guard and do not require a customer subscription.
+Native administrator authentication is isolated from customer authentication and legacy Manus OAuth. Configure `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the server-side deployment secret manager before starting the service. `ADMIN_PASSWORD` must be non-empty and no longer than 128 characters. On startup, the server creates the administrator only when that email has no existing administrator identity; it never overwrites an existing admin credential on subsequent starts. If the email belongs to a non-admin user, startup refuses to elevate it automatically. The native admin login is available at `/admin`, uses a dedicated HTTP-only secure session, and administrator procedures remain protected by the server-side `admin` role guard. Legacy OAuth remains available only for its separate callback path and does not control `/login`, `/register`, or `/admin`.
 
 ## 5. Customer authentication and recovery
 

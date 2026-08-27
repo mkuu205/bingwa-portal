@@ -23,6 +23,7 @@ function Router() {
       <Route path={"/customer/login"} component={CustomerAuth} />
       <Route path={"/customer"} component={CustomerHome} />
       <Route path={"/admin"} component={Home} />
+      <Route path={"/admin/dashboard"} component={Home} />
       <Route path={"/customer/register"} component={CustomerAuth} />
       <Route path={"/forgot-password"} component={PasswordReset} />
       <Route path={"/resend-verification"} component={ResendVerification} />

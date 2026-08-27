@@ -1,4 +1,5 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+import AdminLogin from "@/pages/AdminLogin";
+import { trpc } from "@/lib/trpc";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -19,7 +20,6 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { startLogin } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { Activity, CircleDollarSign, Command, History, LayoutDashboard, LogOut, PackageOpen, PanelLeft, Server, Settings2, Smartphone, Users } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
@@ -54,7 +54,13 @@ export default function DashboardLayout({
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
-  const { loading, user } = useAuth();
+  const utils = trpc.useUtils();
+  const adminQuery = trpc.auth.adminMe.useQuery();
+  const logoutMutation = trpc.auth.adminLogout.useMutation({
+    onSuccess: () => utils.auth.adminMe.setData(undefined, null),
+  });
+  const loading = adminQuery.isLoading || logoutMutation.isPending;
+  const user = adminQuery.data;
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
@@ -65,27 +71,7 @@ export default function DashboardLayout({
   }
 
   if (!user) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-6">
-            <h1 className="text-2xl font-semibold tracking-tight text-center">
-              Sign in to continue
-            </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              Access to this dashboard requires authentication. Continue to launch the login flow.
-            </p>
-          </div>
-          <Button
-            onClick={() => startLogin()}
-            size="lg"
-            className="w-full shadow-lg hover:shadow-xl transition-all"
-          >
-            Sign in
-          </Button>
-        </div>
-      </div>
-    );
+    return <AdminLogin />;
   }
 
   return (
@@ -112,7 +98,12 @@ function DashboardLayoutContent({
   children,
   setSidebarWidth,
 }: DashboardLayoutContentProps) {
-  const { user, logout } = useAuth();
+  const user = trpc.auth.adminMe.useQuery().data;
+  const utils = trpc.useUtils();
+  const logoutMutation = trpc.auth.adminLogout.useMutation({
+    onSuccess: () => utils.auth.adminMe.setData(undefined, null),
+  });
+  const logout = () => logoutMutation.mutate();
   const [location, setLocation] = useLocation();
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";

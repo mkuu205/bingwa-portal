@@ -8,6 +8,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { registerHealthRoute } from "../health";
+import { bootstrapAdminFromEnvironment } from "../adminAuth";
 import { serveStatic, setupVite } from "./vite";
 import { ENV, validateProductionAppUrl } from "./env";
 
@@ -32,6 +33,7 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 
 async function startServer() {
   validateProductionAppUrl(ENV.appUrl);
+  if (ENV.databaseUrl) await bootstrapAdminFromEnvironment();
   const app = express();
   const server = createServer(app);
   // Configure body parser with larger size limit for file uploads

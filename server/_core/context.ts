@@ -1,6 +1,7 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { Customer, User } from "@prisma/client";
 import { getCustomerFromRequest } from "../customerAuth";
+import { getAdminFromRequest } from "../adminAuth";
 import { sdk } from "./sdk";
 
 export type TrpcContext = {
@@ -18,8 +19,14 @@ export async function createContext(
   try {
     user = await sdk.authenticateRequest(opts.req);
   } catch (error) {
-    // Authentication is optional for public procedures.
+    // Legacy OAuth authentication remains optional and isolated from native auth.
     user = null;
+  }
+
+  try {
+    user = (await getAdminFromRequest(opts.req)) ?? user;
+  } catch {
+    // Native admin authentication remains optional for public/customer requests.
   }
 
   let customer = null;

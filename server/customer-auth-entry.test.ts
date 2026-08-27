@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const projectRoot = resolve(import.meta.dirname, "..");
 const appSource = readFileSync(resolve(projectRoot, "client/src/App.tsx"), "utf8");
 const navigationSource = readFileSync(resolve(projectRoot, "client/src/components/DashboardLayout.tsx"), "utf8");
+const adminLoginSource = readFileSync(resolve(projectRoot, "client/src/pages/AdminLogin.tsx"), "utf8");
 
 describe("native customer authentication entry points", () => {
   it("routes the public root and short auth URLs to CustomerAuth", () => {
@@ -25,8 +26,13 @@ describe("native customer authentication entry points", () => {
     expect(routerSource).toContain("changeCustomerPassword: customerProcedure");
   });
 
-  it("keeps the Manus-authenticated operations workspace behind /admin", () => {
+  it("keeps the native administrator workspace behind /admin", () => {
     expect(appSource).toContain('<Route path={"/admin"} component={Home} />');
+    expect(appSource).toContain('<Route path={"/admin/dashboard"} component={Home} />');
+    expect(navigationSource).toContain("<AdminLogin />");
+    expect(adminLoginSource).toContain("trpc.auth.adminLogin.useMutation");
+    expect(adminLoginSource).toContain("Administrator Login");
+    expect(navigationSource).not.toContain("startLogin");
     expect(navigationSource).toContain('path: "/admin"');
     expect(navigationSource).toContain('path: "/admin?view=devices"');
     expect(navigationSource).not.toContain('path: "/?view=devices"');

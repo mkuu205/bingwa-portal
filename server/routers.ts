@@ -17,6 +17,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, customerProcedure, publicProcedure, router } from "./_core/trpc";
 import { createCustomerSession, clearCustomerSession, consumeEmailVerificationToken, createEmailVerificationToken, createPasswordResetToken, consumePasswordResetToken, customerEmail, hashPassword, verifyPassword } from "./customerAuth";
+import { authenticateAdmin, clearAdminSession, createAdminSession } from "./adminAuth";
 import { sendCustomerPasswordResetEmail, sendCustomerVerificationEmail } from "./email";
 import { createDeviceCredential, createPairingMaterial, hashPairingSecret, normalizePairingCode } from "./pairing";
 import { ENV } from "./_core/env";
@@ -64,7 +65,20 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
+    adminMe: publicProcedure.query(opts => opts.ctx.user?.role === "admin" ? ({ id: opts.ctx.user.id, openId: opts.ctx.user.openId, name: opts.ctx.user.name, email: opts.ctx.user.email, role: opts.ctx.user.role }) : null),
     customerMe: publicProcedure.query(opts => opts.ctx.customer ?? null),
+    adminLogin: publicProcedure
+      .input(z.object({ email: z.string().email().max(320), password: z.string().min(1).max(128) }))
+      .mutation(async ({ input, ctx }) => {
+        const user = await authenticateAdmin(input.email, input.password);
+        if (!user) throw new Error("Invalid administrator credentials");
+        await createAdminSession(ctx.req, ctx.res, user.id);
+        return { success: true as const, admin: { id: user.id, name: user.name, email: user.email, role: user.role } };
+      }),
+    adminLogout: publicProcedure.mutation(async ({ ctx }) => {
+      await clearAdminSession(ctx.req, ctx.res);
+      return { success: true as const };
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
