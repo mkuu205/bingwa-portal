@@ -25,6 +25,12 @@ import { createDeviceCredential, createPairingMaterial, hashPairingSecret, norma
 import { ENV } from "./_core/env";
 
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+const normalizeKenyanPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  if (digits.startsWith("254") && digits.length === 12) return digits;
+  if (digits.startsWith("0") && digits.length === 10) return `254${digits.slice(1)}`;
+  throw new TRPCError({ code: "BAD_REQUEST", message: "Use a valid Kenyan phone number" });
+};
 
 const deviceInput = z.object({
   deviceId: z.string().min(3).max(128),
@@ -244,6 +250,43 @@ export const appRouter = router({
         counts,
       };
     }),
+    activatePlan: customerProcedure
+      .input(z.object({ productId: z.string().min(1) }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
+        const product = await db.product.findFirst({ where: { id: input.productId, productType: "SUBSCRIPTION", status: "ACTIVE" } });
+        if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Published subscription plan not found" });
+        const numericPrice = product.price == null ? null : Number(product.price);
+        const isFree = numericPrice == null || numericPrice === 0;
+        if (numericPrice != null && (!Number.isFinite(numericPrice) || numericPrice < 0)) throw new TRPCError({ code: "BAD_REQUEST", message: "This plan has an invalid price" });
+        const renewalAt = product.durationDays ? new Date(Date.now() + product.durationDays * 86400000) : null;
+        if (isFree) {
+          const material = createPairingMaterial();
+          const subscription = await db.$transaction(async tx => {
+            const created = await tx.subscription.create({ data: { customerId: ctx.customer.id, productId: product.id, storeName: "Bingwa Portal", ownerPhone: ctx.customer.phone, planName: product.name, status: "ACTIVE", renewalAt } });
+            await tx.pairingToken.create({ data: { customerId: ctx.customer.id, codeHash: material.codeHash, secretHash: material.secretHash, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } });
+            await tx.auditLog.create({ data: { actorType: "CUSTOMER", actorCustomerId: ctx.customer.id, action: "FREE_PLAN_ACTIVATED", metadata: { productId: product.id, subscriptionId: created.id } } });
+            return created;
+          });
+          return { kind: "FREE" as const, subscriptionId: subscription.id, planName: product.name, pairingCode: material.code, pairingSecret: material.secret, expiresAt: new Date(Date.now() + 10 * 60 * 1000) };
+        }
+        if (numericPrice < 1) throw new TRPCError({ code: "BAD_REQUEST", message: "Paid plans must be at least KES 1" });
+        if (!ctx.customer.phone) throw new TRPCError({ code: "BAD_REQUEST", message: "Add a phone number to your account before paying for a plan" });
+        if (!ENV.payflowApiKey || !ENV.payflowApiSecret || !ENV.payflowPaymentAccountId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Payflow is not configured" });
+        const idempotencyKey = `plan-${ctx.customer.id}-${product.id}-${randomBytes(12).toString("hex")}`;
+        const payment = await db.bingwaPayment.create({ data: { customerId: ctx.customer.id, productId: product.id, idempotencyKey, phone: normalizeKenyanPhone(ctx.customer.phone), amount: numericPrice, currency: product.currency, status: "CREATED" } });
+        try {
+          const response = await fetch(`${ENV.payflowBaseUrl.replace(/\/$/, "")}/stkpush.php`, { method: "POST", headers: { "X-API-Key": ENV.payflowApiKey, "X-API-Secret": ENV.payflowApiSecret, "Content-Type": "application/json" }, body: JSON.stringify({ payment_account_id: Number(ENV.payflowPaymentAccountId), phone: normalizeKenyanPhone(ctx.customer.phone), amount: numericPrice, reference: payment.id, description: product.name }) });
+          const result = await response.json() as { success?: boolean; message?: string; checkout_request_id?: string; merchant_request_id?: string; transaction_id?: number | string };
+          if (!response.ok || !result.success || !result.checkout_request_id) throw new Error(result.message || "Payflow rejected the STK Push");
+          await db.bingwaPayment.update({ where: { id: payment.id }, data: { status: "PENDING", checkoutRequestId: result.checkout_request_id, merchantRequestId: result.merchant_request_id, payflowTransactionId: result.transaction_id == null ? null : String(result.transaction_id) } });
+          return { kind: "PAID" as const, paymentId: payment.id, checkoutRequestId: result.checkout_request_id, message: "STK Push sent. Complete the payment on your phone." };
+        } catch (error) {
+          await db.bingwaPayment.update({ where: { id: payment.id }, data: { status: "FAILED", failureMessage: error instanceof Error ? error.message : "Payflow request failed" } });
+          throw new TRPCError({ code: "BAD_GATEWAY", message: "Unable to start Payflow payment" });
+        }
+      }),
     devices: customerProcedure.query(async ({ ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");

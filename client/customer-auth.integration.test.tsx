@@ -40,6 +40,9 @@ vi.mock("@/lib/trpc", () => ({
           error: null,
         })),
       },
+      activatePlan: {
+        useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false, data: undefined, error: null })),
+      },
       customerLogout: {
         useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
       },
