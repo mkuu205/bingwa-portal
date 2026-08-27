@@ -230,6 +230,14 @@ model Device {
   iccId                 String?      @db.VarChar(160)
   automationSimConfigured Boolean     @default(false)
   batteryPercent        Int?
+  airtimeBalance        Decimal?     @db.Decimal(12, 2)
+  tokenBalance          Int?
+  commissionTotal       Decimal?     @db.Decimal(12, 2)
+  completedToday        Int?
+  pendingCount          Int?
+  scheduledCount        Int?
+  failedCount            Int?
+  successRate           Decimal?     @db.Decimal(5, 2)
   automationEnabled     Boolean?
   executionState        String?      @db.VarChar(40)
   latencyMs             Int?

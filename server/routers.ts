@@ -48,6 +48,14 @@ const deviceInput = z.object({
   iccId: z.string().max(160).optional(),
   automationSimConfigured: z.boolean().optional(),
   batteryPercent: z.number().int().min(0).max(100).optional(),
+  airtimeBalance: z.number().nonnegative().optional(),
+  availableTokens: z.number().int().nonnegative().optional(),
+  commissionTotal: z.number().nonnegative().optional(),
+  completedToday: z.number().int().nonnegative().optional(),
+  pendingCount: z.number().int().nonnegative().optional(),
+  scheduledCount: z.number().int().nonnegative().optional(),
+  failedCount: z.number().int().nonnegative().optional(),
+  successRate: z.number().min(0).max(100).optional(),
   automationEnabled: z.boolean().optional(),
   executionState: z.string().max(40).optional(),
   latencyMs: z.number().int().min(0).optional(),
@@ -240,7 +248,7 @@ export const appRouter = router({
           select: {
             id: true, deviceId: true, deviceName: true, model: true, manufacturer: true,
             androidVersion: true, appVersion: true, phoneNumber: true, simSlot: true,
-            automationSimConfigured: true, batteryPercent: true, automationEnabled: true, executionState: true, latencyMs: true,
+            automationSimConfigured: true, batteryPercent: true, airtimeBalance: true, tokenBalance: true, commissionTotal: true, completedToday: true, pendingCount: true, scheduledCount: true, failedCount: true, successRate: true, automationEnabled: true, executionState: true, latencyMs: true,
             status: true, lastHeartbeatAt: true, lastSyncAt: true, enrolledAt: true,
           },
         }),
@@ -259,12 +267,25 @@ export const appRouter = router({
         where: { deviceId: { in: devices.map(device => device.id) }, isActive: true },
         orderBy: { updatedAt: "desc" },
       });
-      const counts = { completed: 0, pending: 0, failed: 0 };
+      const counts = { completed: 0, pending: 0, scheduled: 0, failed: 0 };
       for (const transaction of transactions) {
         if (transaction.status === "COMPLETED") counts.completed += 1;
         else if (transaction.status === "FAILED") counts.failed += 1;
+        else if (transaction.status === "WAITING") counts.scheduled += 1;
         else counts.pending += 1;
       }
+      const selectedDevice = devices[0];
+      const metrics = {
+        airtimeBalance: selectedDevice?.airtimeBalance?.toString() ?? null,
+        tokens: selectedDevice?.tokenBalance ?? subscriptions.reduce((total, subscription) => total + subscription.tokenBalance, 0),
+        commissionTotal: selectedDevice?.commissionTotal?.toString() ?? null,
+        completed: selectedDevice?.completedToday ?? counts.completed,
+        pending: selectedDevice?.pendingCount ?? counts.pending,
+        scheduled: selectedDevice?.scheduledCount ?? counts.scheduled,
+        failed: selectedDevice?.failedCount ?? counts.failed,
+        successRate: selectedDevice?.successRate?.toString() ?? (transactions.length ? ((counts.completed / transactions.length) * 100).toFixed(2) : null),
+        automationEnabled: selectedDevice?.automationEnabled ?? null,
+      };
       return {
         account: { id: ctx.customer.id, email: ctx.customer.email, name: ctx.customer.name, phone: ctx.customer.phone, emailVerifiedAt: ctx.customer.emailVerifiedAt },
         devices,
@@ -272,7 +293,8 @@ export const appRouter = router({
         plans: plans.map(plan => ({ ...plan, price: plan.price?.toString() ?? null })),
         devicePlans: devicePlans.map(plan => ({ ...plan, price: plan.price?.toString() ?? null, commissionPerSale: plan.commissionPerSale?.toString() ?? null })),
         transactions: transactions.map(transaction => ({ ...transaction, amount: transaction.amount.toString() })),
-        tokens: subscriptions.reduce((total, subscription) => total + subscription.tokenBalance, 0),
+        tokens: metrics.tokens,
+        metrics,
         counts,
       };
     }),
@@ -854,6 +876,14 @@ export const appRouter = router({
           ...(input.device.iccId !== undefined ? { iccId: input.device.iccId } : {}),
           ...(input.device.automationSimConfigured !== undefined ? { automationSimConfigured: input.device.automationSimConfigured } : {}),
           ...(input.device.batteryPercent !== undefined ? { batteryPercent: input.device.batteryPercent } : {}),
+          ...(input.device.airtimeBalance !== undefined ? { airtimeBalance: input.device.airtimeBalance } : {}),
+          ...(input.device.availableTokens !== undefined ? { tokenBalance: input.device.availableTokens } : {}),
+          ...(input.device.commissionTotal !== undefined ? { commissionTotal: input.device.commissionTotal } : {}),
+          ...(input.device.completedToday !== undefined ? { completedToday: input.device.completedToday } : {}),
+          ...(input.device.pendingCount !== undefined ? { pendingCount: input.device.pendingCount } : {}),
+          ...(input.device.scheduledCount !== undefined ? { scheduledCount: input.device.scheduledCount } : {}),
+          ...(input.device.failedCount !== undefined ? { failedCount: input.device.failedCount } : {}),
+          ...(input.device.successRate !== undefined ? { successRate: input.device.successRate } : {}),
           ...(input.device.automationEnabled !== undefined ? { automationEnabled: input.device.automationEnabled } : {}),
           ...(input.device.executionState !== undefined ? { executionState: input.device.executionState } : {}),
           ...(input.device.latencyMs !== undefined ? { latencyMs: input.device.latencyMs } : {}),
