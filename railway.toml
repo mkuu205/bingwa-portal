@@ -3,8 +3,8 @@ builder = "NIXPACKS"
 buildCommand = "pnpm install --frozen-lockfile && pnpm db:generate && pnpm build"
 
 [deploy]
-# Start liveness independently of database migrations. Run `pnpm db:deploy` as an explicit Railway migration operation after DATABASE_URL is configured.
-startCommand = "pnpm start"
+# Apply committed Prisma migrations before launching the application.
+startCommand = "pnpm db:deploy && pnpm start"
 healthcheckPath = "/healthz"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
