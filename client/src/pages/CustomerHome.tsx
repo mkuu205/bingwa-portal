@@ -1,39 +1,97 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
-import { useEffect } from "react";
 import { useLocation } from "wouter";
+
+const navItems = [
+  ["Home", "#home"],
+  ["Devices", "#devices"],
+  ["Transactions", "#transactions"],
+  ["Plans", "#plans"],
+  ["More", "#more"],
+] as const;
+
+function formatDate(value: string | Date | null | undefined) {
+  if (!value) return "Never";
+  return new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+function statusLabel(status: string) {
+  return status.toLowerCase().replaceAll("_", " ");
+}
 
 export default function CustomerHome() {
   const [, navigate] = useLocation();
-  const account = trpc.auth.customerAccount.useQuery();
+  const [active, setActive] = useState("#home");
+  const dashboard = trpc.auth.dashboard.useQuery(undefined, { refetchInterval: 30000 });
   const logout = trpc.auth.customerLogout.useMutation({ onSuccess: () => navigate("/customer/login") });
 
   useEffect(() => {
-    if (account.error) navigate("/customer/login");
-  }, [account.error, navigate]);
+    if (dashboard.error) navigate("/customer/login");
+  }, [dashboard.error, navigate]);
 
-  if (account.isLoading) return <main className="min-h-screen bg-background p-8 text-foreground">Loading your account…</main>;
-  if (!account.data) return null;
+  const selectedDevice = dashboard.data?.devices[0];
+  const activeSubscription = useMemo(
+    () => dashboard.data?.subscriptions.find(subscription => ["ACTIVE", "TRIAL"].includes(subscription.status)) ?? dashboard.data?.subscriptions[0],
+    [dashboard.data?.subscriptions],
+  );
+  const online = selectedDevice?.lastHeartbeatAt && Date.now() - new Date(selectedDevice.lastHeartbeatAt).getTime() < 5 * 60 * 1000;
+
+  if (dashboard.isLoading) return <main className="min-h-screen bg-background p-6 text-foreground">Loading your workspace…</main>;
+  if (!dashboard.data) return null;
+
+  const { account, devices, transactions, subscriptions, counts } = dashboard.data;
+  const hasPlan = Boolean(activeSubscription);
 
   return (
-    <main className="min-h-screen bg-background px-4 py-12 text-foreground">
-      <div className="mx-auto max-w-3xl space-y-6">
-        <div className="flex items-center justify-between gap-4">
-          <div><p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Bingwa Portal</p><h1 className="text-3xl font-semibold">Welcome, {account.data.name}</h1></div>
-          <div className="flex items-center gap-2"><a href="/change-password" className="rounded-md border border-border px-3 py-2 text-sm underline-offset-4 hover:underline">Change password</a><Button variant="outline" onClick={() => logout.mutate()} disabled={logout.isPending}>Sign out</Button></div>
-        </div>
-        <Card className="border-border/70 bg-card/90">
-          <CardHeader><CardTitle>Account</CardTitle><CardDescription>Your customer identity is isolated from administrator access.</CardDescription></CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <div><p className="text-xs uppercase tracking-wide text-muted-foreground">Email</p><p className="mt-1 font-medium">{account.data.email}</p></div>
-            <div><p className="text-xs uppercase tracking-wide text-muted-foreground">Email status</p><p className="mt-1 font-medium text-emerald-300">Verified</p></div>
-            <div><p className="text-xs uppercase tracking-wide text-muted-foreground">Phone</p><p className="mt-1 font-medium">{account.data.phone || "Not provided"}</p></div>
-          </CardContent>
-        </Card>
-        <Card className="border-dashed border-border/70 bg-card/50"><CardContent className="p-6"><p className="font-medium">Device pairing and subscription management</p><p className="mt-1 text-sm text-muted-foreground">These customer-owned controls will appear here after the secure pairing and product modules are enabled.</p></CardContent></Card>
+    <main className="min-h-screen bg-background pb-24 text-foreground">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-10 -mx-4 mb-5 border-b border-border/70 bg-background/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">Bingwa Portal</p>
+              <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Welcome back, {account.name}</h1>
+            </div>
+            <div className="rounded-xl border border-border bg-card px-3 py-2 text-right">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Selected device</p>
+              <p className="max-w-32 truncate text-sm font-medium">{selectedDevice?.deviceName ?? "No device"}</p>
+              <p className={online ? "text-xs text-emerald-400" : "text-xs text-muted-foreground"}>{online ? "● Online" : "● Offline"}</p>
+            </div>
+          </div>
+          <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+            {selectedDevice ? `${selectedDevice.deviceName} · last seen ${formatDate(selectedDevice.lastHeartbeatAt)}` : "Subscribe to pair your first device and start using your workspace."}
+          </div>
+        </header>
+
+        <section id="home" className="scroll-mt-28 space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <Card><CardHeader className="pb-2"><CardDescription>Devices</CardDescription><CardTitle className="text-3xl">{devices.length}</CardTitle></CardHeader><CardContent className="text-xs text-muted-foreground">{online ? "Your device is online" : "No device currently online"}</CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardDescription>Active plan</CardDescription><CardTitle className="truncate text-xl">{activeSubscription?.planName ?? "None"}</CardTitle></CardHeader><CardContent className="text-xs text-muted-foreground">{activeSubscription?.tokenBalance ?? 0} tokens available</CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardDescription>Completed</CardDescription><CardTitle className="text-3xl text-emerald-400">{counts.completed}</CardTitle></CardHeader><CardContent className="text-xs text-muted-foreground">Transactions recorded</CardContent></Card>
+            <Card><CardHeader className="pb-2"><CardDescription>Needs attention</CardDescription><CardTitle className="text-3xl text-amber-300">{counts.pending + counts.failed}</CardTitle></CardHeader><CardContent className="text-xs text-muted-foreground">Pending or failed activity</CardContent></Card>
+          </div>
+
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader><CardTitle>Customer workspace</CardTitle><CardDescription>Manage your devices, plans, and activity from one place.</CardDescription></CardHeader>
+            <CardContent className="grid gap-3 sm:grid-cols-3">
+              <a href="#devices" className="rounded-xl border border-border bg-card p-4 transition hover:border-primary"><p className="font-medium">Devices</p><p className="mt-1 text-sm text-muted-foreground">Pair, monitor, or unpair phones.</p></a>
+              <a href="#transactions" className="rounded-xl border border-border bg-card p-4 transition hover:border-primary"><p className="font-medium">Transactions</p><p className="mt-1 text-sm text-muted-foreground">Review activity from your devices.</p></a>
+              <a href="#plans" className="rounded-xl border border-border bg-card p-4 transition hover:border-primary"><p className="font-medium">Plans</p><p className="mt-1 text-sm text-muted-foreground">View the plans available to your account.</p></a>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section id="devices" className="mt-8 scroll-mt-28 space-y-4"><div><h2 className="text-2xl font-semibold">Devices</h2><p className="text-sm text-muted-foreground">Phones linked to your customer account.</p></div>{devices.length ? devices.map(device => <Card key={device.id}><CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">{device.deviceName}</p><p className="mt-1 text-sm text-muted-foreground">{device.manufacturer ?? "Android"} {device.model ?? "phone"} · {device.appVersion ?? "Version unknown"}</p><p className="mt-1 text-xs text-muted-foreground">Last heartbeat: {formatDate(device.lastHeartbeatAt)}</p></div><div className="flex items-center gap-3"><span className={device.status === "online" || online ? "text-sm text-emerald-400" : "text-sm text-muted-foreground"}>● {statusLabel(device.status)}</span><Button variant="outline" onClick={() => document.getElementById("devices")?.scrollIntoView({ behavior: "smooth" })}>View</Button></div></CardContent></Card>) : <Card className="border-dashed"><CardContent className="p-8 text-center"><p className="text-lg font-semibold">No devices yet</p><p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{hasPlan ? "Pair a phone running Bingwa to begin managing it here." : "Choose a plan first, then pair a phone from this page."}</p><Button className="mt-5" onClick={() => document.getElementById("plans")?.scrollIntoView({ behavior: "smooth" })}>{hasPlan ? "Pair a device" : "View plans"}</Button></CardContent></Card>}</section>
+
+        <section id="transactions" className="mt-8 scroll-mt-28 space-y-4"><div><h2 className="text-2xl font-semibold">Transactions</h2><p className="text-sm text-muted-foreground">Recent activity across your paired devices.</p></div><Card><CardContent className="p-5">{transactions.length ? <div className="space-y-3">{transactions.slice(0, 10).map(transaction => <div key={transaction.id} className="flex flex-col gap-1 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-medium">{transaction.packageName}</p><p className="text-xs text-muted-foreground">{transaction.device?.deviceName ?? "Device"} · {transaction.phoneNumber}</p></div><div className="text-left sm:text-right"><p className="font-medium">KES {transaction.amount}</p><p className="text-xs capitalize text-muted-foreground">{statusLabel(transaction.status)}</p></div></div>)}</div> : <div className="py-8 text-center"><p className="text-lg font-semibold">{hasPlan ? "No transactions yet" : "History locked"}</p><p className="mt-2 text-sm text-muted-foreground">{hasPlan ? "Activity from paired phones will appear here." : "Subscribe to see sales and activity from paired phones."}</p><Button className="mt-5" onClick={() => document.getElementById("plans")?.scrollIntoView({ behavior: "smooth" })}>Choose a plan</Button></div>}</CardContent></Card></section>
+
+        <section id="plans" className="mt-8 scroll-mt-28 space-y-4"><div><h2 className="text-2xl font-semibold">Plans</h2><p className="text-sm text-muted-foreground">Your current subscription and device entitlement.</p></div>{subscriptions.length ? subscriptions.map(subscription => <Card key={subscription.id}><CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">{subscription.planName}</p><p className="text-sm text-muted-foreground">{subscription.storeName} · {subscription.tokenBalance} tokens</p></div><div className="text-left sm:text-right"><p className="capitalize text-emerald-400">{statusLabel(subscription.status)}</p><p className="text-xs text-muted-foreground">Renews {formatDate(subscription.renewalAt)}</p></div></CardContent></Card>) : <Card className="border-dashed"><CardContent className="p-8 text-center"><p className="text-lg font-semibold">No active plan</p><p className="mt-2 text-sm text-muted-foreground">Plans and pairing become available after a subscription is created for your account.</p><Button className="mt-5" onClick={() => document.getElementById("plans")?.scrollIntoView({ behavior: "smooth" })}>View available plans</Button></CardContent></Card>}</section>
+
+        <section id="more" className="mt-8 scroll-mt-28"><Card><CardHeader><CardTitle>Account and settings</CardTitle><CardDescription>{account.email} · {account.emailVerifiedAt ? "Verified account" : "Verification pending"}</CardDescription></CardHeader><CardContent className="flex flex-wrap gap-3"><Button variant="outline" onClick={() => navigate("/change-password")}>Change password</Button><Button variant="outline" onClick={() => logout.mutate()} disabled={logout.isPending}>Sign out</Button></CardContent></Card></section>
       </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-2 py-2 backdrop-blur sm:hidden" aria-label="Customer navigation"> <div className="mx-auto grid max-w-md grid-cols-5 gap-1">{navItems.map(([label, href]) => <a key={href} href={href} onClick={() => setActive(href)} className={`rounded-lg px-1 py-2 text-center text-[11px] ${active === href ? "bg-primary/15 font-semibold text-primary" : "text-muted-foreground"}`}>{label}</a>)}</div></nav>
     </main>
   );
 }

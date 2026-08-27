@@ -30,6 +30,16 @@ vi.mock("@/lib/trpc", () => ({
           error: null,
         })),
       },
+      dashboard: {
+        useQuery: vi.fn(() => ({
+          data: {
+            account: { id: "customer-1", name: "Router Customer", email: "router@example.invalid", phone: "0712345678", emailVerifiedAt: new Date() },
+            devices: [], subscriptions: [], transactions: [], counts: { completed: 0, pending: 0, failed: 0 },
+          },
+          isLoading: false,
+          error: null,
+        })),
+      },
       customerLogout: {
         useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
       },
@@ -60,7 +70,7 @@ describe("customer login browser flow", () => {
     expect(currentPath).toBe("/customer");
 
     render(<CustomerHome />);
-    expect(screen.getByText("Welcome, Router Customer")).toBeTruthy();
-    expect(screen.getByText("router@example.invalid")).toBeTruthy();
+    expect(screen.getByText("Welcome back, Router Customer")).toBeTruthy();
+    expect(screen.getByText(/router@example\.invalid/)).toBeTruthy();
   });
 });

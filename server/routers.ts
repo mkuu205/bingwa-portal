@@ -204,6 +204,40 @@ export const appRouter = router({
       phone: ctx.customer.phone,
       emailVerifiedAt: ctx.customer.emailVerifiedAt,
     })),
+    dashboard: customerProcedure.query(async ({ ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const [devices, subscriptions, transactions] = await Promise.all([
+        db.device.findMany({
+          where: { customerId: ctx.customer.id },
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true, deviceId: true, deviceName: true, model: true, manufacturer: true,
+            androidVersion: true, appVersion: true, phoneNumber: true,
+            automationSimConfigured: true, status: true, lastHeartbeatAt: true,
+            lastSyncAt: true, enrolledAt: true,
+          },
+        }),
+        db.subscription.findMany({ where: { customerId: ctx.customer.id }, orderBy: { updatedAt: "desc" }, take: 20 }),
+        db.transaction.findMany({
+          where: { device: { customerId: ctx.customer.id } }, orderBy: { createdAt: "desc" }, take: 50,
+          select: { id: true, packageName: true, amount: true, status: true, verificationStatus: true, phoneNumber: true, createdAt: true, device: { select: { deviceName: true } } },
+        }),
+      ]);
+      const counts = { completed: 0, pending: 0, failed: 0 };
+      for (const transaction of transactions) {
+        if (transaction.status === "COMPLETED") counts.completed += 1;
+        else if (transaction.status === "FAILED") counts.failed += 1;
+        else counts.pending += 1;
+      }
+      return {
+        account: { id: ctx.customer.id, email: ctx.customer.email, name: ctx.customer.name, phone: ctx.customer.phone, emailVerifiedAt: ctx.customer.emailVerifiedAt },
+        devices,
+        subscriptions,
+        transactions: transactions.map(transaction => ({ ...transaction, amount: transaction.amount.toString() })),
+        counts,
+      };
+    }),
     devices: customerProcedure.query(async ({ ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");
