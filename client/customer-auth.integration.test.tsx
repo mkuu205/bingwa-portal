@@ -34,7 +34,7 @@ vi.mock("@/lib/trpc", () => ({
         useQuery: vi.fn(() => ({
           data: {
             account: { id: "customer-1", name: "Router Customer", email: "router@example.invalid", phone: "0712345678", emailVerifiedAt: new Date() },
-            devices: [], subscriptions: [], plans: [], transactions: [], counts: { completed: 0, pending: 0, failed: 0 },
+            devices: [], subscriptions: [], plans: [], devicePlans: [], transactions: [], counts: { completed: 0, pending: 0, failed: 0 },
           },
           isLoading: false,
           error: null,
@@ -47,6 +47,9 @@ vi.mock("@/lib/trpc", () => ({
         useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false, data: undefined, error: null })),
       },
       enqueueCustomerCommand: {
+        useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false, data: undefined, error: null, isSuccess: false })),
+      },
+      createDeviceTransaction: {
         useMutation: vi.fn(() => ({ mutate: vi.fn(), isPending: false, data: undefined, error: null, isSuccess: false })),
       },
       createPairingToken: {

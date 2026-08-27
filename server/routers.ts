@@ -47,6 +47,26 @@ const deviceInput = z.object({
   carrierName: z.string().max(120).optional(),
   iccId: z.string().max(160).optional(),
   automationSimConfigured: z.boolean().optional(),
+  batteryPercent: z.number().int().min(0).max(100).optional(),
+  automationEnabled: z.boolean().optional(),
+  executionState: z.string().max(40).optional(),
+  latencyMs: z.number().int().min(0).optional(),
+});
+
+const deviceDataPlanSyncInput = z.object({
+  packageName: z.string().min(1).max(160),
+  description: z.string().optional(),
+  ussdCode: z.string().max(160).optional(),
+  price: z.number().nonnegative().optional(),
+  validity: z.string().max(80).optional(),
+  dataAmount: z.string().max(80).optional(),
+  category: z.string().max(100).optional(),
+  isActive: z.boolean().default(true),
+  commissionPerSale: z.number().nonnegative().optional(),
+  executeSim: z.number().int().optional(),
+  ussdMode: z.string().max(40).optional(),
+  ussdSteps: z.string().optional(),
+  source: z.string().max(40).optional(),
 });
 
 const transactionSyncInput = z.object({
@@ -220,8 +240,8 @@ export const appRouter = router({
           select: {
             id: true, deviceId: true, deviceName: true, model: true, manufacturer: true,
             androidVersion: true, appVersion: true, phoneNumber: true,
-            automationSimConfigured: true, status: true, lastHeartbeatAt: true,
-            lastSyncAt: true, enrolledAt: true,
+            automationSimConfigured: true, batteryPercent: true, automationEnabled: true, executionState: true, latencyMs: true,
+            status: true, lastHeartbeatAt: true, lastSyncAt: true, enrolledAt: true,
           },
         }),
         db.subscription.findMany({ where: { customerId: ctx.customer.id }, orderBy: { updatedAt: "desc" }, take: 20 }),
@@ -235,6 +255,10 @@ export const appRouter = router({
           select: { id: true, name: true, description: true, price: true, currency: true, durationDays: true, deviceLimit: true },
         }),
       ]);
+      const devicePlans = devices.length === 0 ? [] : await db.deviceDataPlan.findMany({
+        where: { deviceId: { in: devices.map(device => device.id) }, isActive: true },
+        orderBy: { updatedAt: "desc" },
+      });
       const counts = { completed: 0, pending: 0, failed: 0 };
       for (const transaction of transactions) {
         if (transaction.status === "COMPLETED") counts.completed += 1;
@@ -246,6 +270,7 @@ export const appRouter = router({
         devices,
         subscriptions,
         plans: plans.map(plan => ({ ...plan, price: plan.price?.toString() ?? null })),
+        devicePlans: devicePlans.map(plan => ({ ...plan, price: plan.price?.toString() ?? null, commissionPerSale: plan.commissionPerSale?.toString() ?? null })),
         transactions: transactions.map(transaction => ({ ...transaction, amount: transaction.amount.toString() })),
         tokens: subscriptions.reduce((total, subscription) => total + subscription.tokenBalance, 0),
         counts,
@@ -322,6 +347,56 @@ export const appRouter = router({
         } catch {
           throw new TRPCError({ code: "BAD_GATEWAY", message: "Unable to verify Payflow payment" });
         }
+      }),
+    createDeviceTransaction: customerProcedure
+      .input(z.object({
+        deviceId: z.number().int().positive(),
+        planId: z.number().int().positive(),
+        phoneNumber: z.string().min(7).max(40),
+        simSlot: z.number().int().min(0).max(3).default(0),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
+        const phoneNumber = normalizeKenyanPhone(input.phoneNumber);
+        return db.$transaction(async tx => {
+          const device = await tx.device.findFirst({ where: { id: input.deviceId, customerId: ctx.customer.id }, select: { id: true, status: true } });
+          if (!device) throw new TRPCError({ code: "NOT_FOUND", message: "Device not found" });
+          if (device.status !== "online") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Device is offline. Open BingwaAuto before running a transaction." });
+          const plan = await tx.deviceDataPlan.findFirst({ where: { id: input.planId, deviceId: device.id, isActive: true } });
+          if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Data plan is not available on this device" });
+          if (!plan.ussdCode || !plan.price || plan.price.lessThanOrEqualTo(0)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This Android plan is missing a payable price or USSD code" });
+          const operationId = randomBytes(16).toString("hex");
+          const transaction = await tx.transaction.create({ data: {
+            deviceId: device.id,
+            operationId,
+            customerName: ctx.customer.name,
+            phoneNumber,
+            packageName: plan.packageName,
+            amount: plan.price,
+            paymentMethod: "OTHER",
+            status: "PENDING",
+          }, select: { id: true, operationId: true, status: true, packageName: true, amount: true } });
+          const command = await tx.command.create({ data: {
+            deviceId: device.id,
+            commandType: "QUEUE_PAYMENT",
+            payload: {
+              transactionId: transaction.id,
+              operationId,
+              executionId: operationId,
+              phoneNumber,
+              amount: Number(plan.price),
+              packageName: plan.packageName,
+              ussdCode: plan.ussdCode,
+              ussdSteps: plan.ussdSteps,
+              planId: plan.id,
+              simSlot: input.simSlot,
+            } as Prisma.InputJsonValue,
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          }, select: { id: true, status: true } });
+          await tx.auditLog.create({ data: { actorType: "CUSTOMER", actorCustomerId: ctx.customer.id, deviceId: device.id, action: "CUSTOMER_TRANSACTION_QUEUED", metadata: { transactionId: transaction.id, commandId: command.id, planId: plan.id } } });
+          return { transaction: { ...transaction, amount: transaction.amount.toString() }, command };
+        });
       }),
     enqueueCustomerCommand: customerProcedure
       .input(z.object({ deviceId: z.number().int().positive(), commandType: z.string().trim().min(1).max(80), payload: z.record(z.string(), z.unknown()).optional() }))
@@ -754,6 +829,7 @@ export const appRouter = router({
           enrollmentToken: z.string().min(8).optional(),
           device: deviceInput.partial().extend({ deviceName: z.string().optional() }),
           transactions: z.array(transactionSyncInput).max(100).default([]),
+          dataPlans: z.array(deviceDataPlanSyncInput).max(500).optional(),
           operationalStatus: z.string().max(120).optional(),
         }).refine(input => input.deviceToken || input.enrollmentToken, { message: "A device credential is required" })
       )
@@ -777,11 +853,24 @@ export const appRouter = router({
           ...(input.device.carrierName !== undefined ? { carrierName: input.device.carrierName } : {}),
           ...(input.device.iccId !== undefined ? { iccId: input.device.iccId } : {}),
           ...(input.device.automationSimConfigured !== undefined ? { automationSimConfigured: input.device.automationSimConfigured } : {}),
+          ...(input.device.batteryPercent !== undefined ? { batteryPercent: input.device.batteryPercent } : {}),
+          ...(input.device.automationEnabled !== undefined ? { automationEnabled: input.device.automationEnabled } : {}),
+          ...(input.device.executionState !== undefined ? { executionState: input.device.executionState } : {}),
+          ...(input.device.latencyMs !== undefined ? { latencyMs: input.device.latencyMs } : {}),
           status: "online",
           lastHeartbeatAt: now,
           lastSyncAt: now,
         };
         await db.device.update({ where: { id: device.id }, data: deviceUpdate });
+        if (input.dataPlans) {
+          for (const plan of input.dataPlans) {
+            await db.deviceDataPlan.upsert({
+              where: { deviceId_packageName: { deviceId: device.id, packageName: plan.packageName } },
+              create: { deviceId: device.id, ...plan, price: plan.price == null ? null : plan.price.toFixed(2), commissionPerSale: plan.commissionPerSale == null ? null : plan.commissionPerSale.toFixed(2) },
+              update: { ...plan, price: plan.price == null ? null : plan.price.toFixed(2), commissionPerSale: plan.commissionPerSale == null ? null : plan.commissionPerSale.toFixed(2) },
+            });
+          }
+        }
         for (const tx of input.transactions) {
           const projectionKey = tx.androidTransactionId
             ? `${device.id}:${tx.androidTransactionId}`
