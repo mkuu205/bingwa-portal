@@ -235,8 +235,13 @@ export async function authenticateDevice(deviceId: string, token: string) {
 export async function getQueuedCommandsForDevice(deviceId: number, limit = 20) {
   const db = await getDb();
   if (!db) return [];
+  const now = new Date();
+  await db.command.updateMany({
+    where: { deviceId, status: { in: ["QUEUED", "DELIVERED"] }, expiresAt: { lte: now } },
+    data: { status: "EXPIRED", executedAt: now, resultMessage: "Command expired before Android delivery" },
+  });
   return db.command.findMany({
-    where: { deviceId, status: { in: ["QUEUED", "DELIVERED"] } },
+    where: { deviceId, status: { in: ["QUEUED", "DELIVERED"] }, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
     orderBy: { requestedAt: "asc" },
     take: Math.min(Math.max(limit, 1), 50),
   });

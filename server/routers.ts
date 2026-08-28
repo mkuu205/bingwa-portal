@@ -86,7 +86,7 @@ const transactionSyncInput = z.object({
   packageName: z.string().min(1).max(160),
   amount: z.number().nonnegative(),
   paymentMethod: z.enum(["MPESA", "AIRTEL_MONEY", "AIRTIME", "OTHER"]).optional(),
-  status: z.enum(["PENDING", "PROCESSING", "COMPLETED", "FAILED", "WAITING"]).optional(),
+  status: z.enum(["PENDING", "PROCESSING", "COMPLETED", "FAILED", "WAITING", "SKIPPED", "CANCELLED"]).optional(),
   verificationStatus: z.enum(["NOT_REQUIRED", "PENDING", "VERIFIED", "FAILED"]).optional(),
   verificationMessage: z.string().optional(),
   receiptCode: z.string().max(120).optional(),
@@ -241,7 +241,7 @@ export const appRouter = router({
     dashboard: customerProcedure.query(async ({ ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");
-      const [devices, subscriptions, transactions, plans] = await Promise.all([
+      const [devices, subscriptions, transactions, plans, tokenProducts, commands, tokenPurchases] = await Promise.all([
         db.device.findMany({
           where: { customerId: ctx.customer.id },
           orderBy: { updatedAt: "desc" },
@@ -255,22 +255,32 @@ export const appRouter = router({
         db.subscription.findMany({ where: { customerId: ctx.customer.id }, orderBy: { updatedAt: "desc" }, take: 20 }),
         db.transaction.findMany({
           where: { device: { customerId: ctx.customer.id } }, orderBy: { createdAt: "desc" }, take: 50,
-          select: { id: true, packageName: true, amount: true, status: true, verificationStatus: true, phoneNumber: true, createdAt: true, device: { select: { deviceName: true } } },
+          select: { id: true, androidTransactionId: true, executionId: true, operationId: true, customerName: true, packageName: true, amount: true, paymentMethod: true, status: true, verificationStatus: true, verificationMessage: true, receiptCode: true, issue: true, executedAt: true, createdAt: true, updatedAt: true, device: { select: { deviceName: true } } },
         }),
         db.product.findMany({
           where: { productType: "SUBSCRIPTION", status: "ACTIVE" },
           orderBy: { updatedAt: "desc" },
           select: { id: true, name: true, description: true, price: true, currency: true, durationDays: true, deviceLimit: true },
         }),
+        db.product.findMany({
+          where: { productType: "TOKEN", status: "ACTIVE" },
+          orderBy: { updatedAt: "desc" },
+          select: { id: true, name: true, description: true, price: true, currency: true, tokenQuantity: true },
+        }),
+        db.command.findMany({ where: { device: { customerId: ctx.customer.id } }, orderBy: { requestedAt: "desc" }, take: 50, select: { id: true, commandType: true, status: true, payload: true, requestedAt: true, deliveredAt: true, acknowledgedAt: true, executedAt: true, resultMessage: true, expiresAt: true, device: { select: { deviceName: true } } } }),
+        db.tokenPurchase.findMany({ where: { customerId: ctx.customer.id }, orderBy: { createdAt: "desc" }, take: 30, select: { id: true, tokens: true, amount: true, currency: true, purchaseMethod: true, deliveryStatus: true, failureMessage: true, deliveredAt: true, createdAt: true, paymentId: true, commandId: true, product: { select: { name: true } }, device: { select: { deviceName: true } } } }),
       ]);
       const devicePlans = devices.length === 0 ? [] : await db.deviceDataPlan.findMany({
         where: { deviceId: { in: devices.map(device => device.id) } },
         orderBy: { updatedAt: "desc" },
       });
-      const counts = { completed: 0, pending: 0, scheduled: 0, failed: 0 };
+      const counts = { completed: 0, pending: 0, processing: 0, scheduled: 0, failed: 0, skipped: 0, cancelled: 0 };
       for (const transaction of transactions) {
         if (transaction.status === "COMPLETED") counts.completed += 1;
+        else if (transaction.status === "PROCESSING") counts.processing += 1;
         else if (transaction.status === "FAILED") counts.failed += 1;
+        else if (transaction.status === "SKIPPED") counts.skipped += 1;
+        else if (transaction.status === "CANCELLED") counts.cancelled += 1;
         else if (transaction.status === "WAITING") counts.scheduled += 1;
         else counts.pending += 1;
       }
@@ -281,8 +291,11 @@ export const appRouter = router({
         commissionTotal: selectedDevice?.commissionTotal?.toString() ?? null,
         completed: selectedDevice?.completedToday ?? counts.completed,
         pending: selectedDevice?.pendingCount ?? counts.pending,
+        processing: counts.processing,
         scheduled: selectedDevice?.scheduledCount ?? counts.scheduled,
         failed: selectedDevice?.failedCount ?? counts.failed,
+        skipped: counts.skipped,
+        cancelled: counts.cancelled,
         successRate: selectedDevice?.successRate?.toString() ?? (transactions.length ? ((counts.completed / transactions.length) * 100).toFixed(2) : null),
         automationEnabled: selectedDevice?.automationEnabled ?? null,
       };
@@ -291,6 +304,9 @@ export const appRouter = router({
         devices,
         subscriptions,
         plans: plans.map(plan => ({ ...plan, price: plan.price?.toString() ?? null })),
+        tokenProducts: tokenProducts.map(product => ({ ...product, price: product.price?.toString() ?? null })),
+        commands,
+        tokenPurchases: tokenPurchases.map(purchase => ({ ...purchase, amount: purchase.amount.toString() })),
         devicePlans: devicePlans.map(plan => ({ ...plan, price: plan.price?.toString() ?? null, commissionPerSale: plan.commissionPerSale?.toString() ?? null })),
         transactions: transactions.map(transaction => ({ ...transaction, amount: transaction.amount.toString() })),
         tokens: metrics.tokens,
@@ -340,9 +356,10 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
-        const payment = await db.bingwaPayment.findFirst({ where: { id: input.paymentId, customerId: ctx.customer.id }, include: { product: true, entitlement: true } });
+        const payment = await db.bingwaPayment.findFirst({ where: { id: input.paymentId, customerId: ctx.customer.id }, include: { product: true, entitlement: true, tokenPurchase: true } });
         if (!payment) throw new TRPCError({ code: "NOT_FOUND", message: "Payment not found" });
         if (!payment.checkoutRequestId) throw new TRPCError({ code: "BAD_REQUEST", message: "Payment has not started" });
+        if (payment.status === "COMPLETED" && payment.product.productType === "TOKEN" && payment.tokenPurchase) return { status: "COMPLETED" as const, tokenDeliveryStatus: payment.tokenPurchase.deliveryStatus, tokenPurchaseId: payment.tokenPurchase.id, commandId: payment.tokenPurchase.commandId };
         if (payment.status === "COMPLETED" && payment.entitlement) return { status: "COMPLETED" as const, subscriptionId: payment.entitlement.subscriptionId };
         if (!ENV.payflowApiKey || !ENV.payflowApiSecret) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Payflow is not configured" });
         try {
@@ -352,8 +369,16 @@ export const appRouter = router({
           const status = String(result.status || "pending").toLowerCase();
           if (status === "completed") {
             const activated = await db.$transaction(async tx => {
-              const current = await tx.bingwaPayment.findUnique({ where: { id: payment.id }, include: { entitlement: true } });
+              const current = await tx.bingwaPayment.findUnique({ where: { id: payment.id }, include: { entitlement: true, tokenPurchase: true } });
               if (!current) throw new Error("Payment disappeared");
+              if (current.productId && payment.product.productType === "TOKEN") {
+                const tokenPurchase = current.tokenPurchase;
+                if (!tokenPurchase) throw new Error("Token delivery record is missing");
+                const command = tokenPurchase.commandId ? { id: tokenPurchase.commandId } : await tx.command.create({ data: { deviceId: tokenPurchase.deviceId, commandType: "BUY_TOKENS", payload: { purchaseId: tokenPurchase.id, tokens: tokenPurchase.tokens, price: Number(tokenPurchase.amount), phoneNumber: tokenPurchase.phone, paymentMethod: "MPESA" } as Prisma.InputJsonValue, expiresAt: null }, select: { id: true } });
+                await tx.tokenPurchase.update({ where: { id: tokenPurchase.id }, data: { commandId: command.id, deliveryStatus: "QUEUED" } });
+                await tx.bingwaPayment.update({ where: { id: payment.id }, data: { status: "COMPLETED", receiptCode: result.mpesa_receipt ?? null, completedAt: new Date(), statusCheckedAt: new Date() } });
+                return { tokenPurchaseId: tokenPurchase.id, commandId: command.id, tokenDeliveryStatus: "QUEUED" as const };
+              }
               if (current.status === "COMPLETED" && current.entitlement) return current.entitlement;
               const subscription = await tx.subscription.create({ data: { customerId: payment.customerId, productId: payment.productId, storeName: "Bingwa Portal", ownerPhone: payment.phone, planName: payment.product.name, status: "ACTIVE", renewalAt: payment.product.durationDays ? new Date(Date.now() + payment.product.durationDays * 86400000) : null } });
               const entitlement = await tx.entitlementGrant.create({ data: { paymentId: payment.id, customerId: payment.customerId, productId: payment.productId, subscriptionId: subscription.id } });
@@ -361,13 +386,59 @@ export const appRouter = router({
               await tx.auditLog.create({ data: { actorType: "CUSTOMER", actorCustomerId: payment.customerId, paymentId: payment.id, action: "SUBSCRIPTION_ACTIVATED", metadata: { subscriptionId: subscription.id, productId: payment.productId } } });
               return entitlement;
             });
-            return { status: "COMPLETED" as const, subscriptionId: activated.subscriptionId };
+            if (payment.product.productType === "TOKEN") return { status: "COMPLETED" as const, tokenPurchaseId: (activated as { tokenPurchaseId: string }).tokenPurchaseId, commandId: (activated as { commandId: number }).commandId, tokenDeliveryStatus: "QUEUED" as const };
+            return { status: "COMPLETED" as const, subscriptionId: (activated as { subscriptionId: number }).subscriptionId };
           }
           const nextStatus = status === "failed" ? "FAILED" : status === "cancelled" ? "CANCELLED" : "PENDING";
           await db.bingwaPayment.update({ where: { id: payment.id }, data: { status: nextStatus, statusCheckedAt: new Date(), failureMessage: nextStatus === "FAILED" || nextStatus === "CANCELLED" ? result.message ?? null : undefined } });
+          if (payment.product.productType === "TOKEN" && (nextStatus === "FAILED" || nextStatus === "CANCELLED")) await db.tokenPurchase.updateMany({ where: { paymentId: payment.id }, data: { deliveryStatus: nextStatus === "CANCELLED" ? "CANCELLED" : "FAILED", failureMessage: result.message ?? "Payment failed" } });
           return { status: nextStatus as "PENDING" | "FAILED" | "CANCELLED" };
         } catch {
           throw new TRPCError({ code: "BAD_GATEWAY", message: "Unable to verify Payflow payment" });
+        }
+      }),
+    createTokenPurchase: customerProcedure
+      .input(z.object({
+        deviceId: z.number().int().positive(),
+        productId: z.string().min(1),
+        paymentMethod: z.enum(["AIRTIME", "MPESA"]),
+        phoneNumber: z.string().min(7).max(40),
+        simSlot: z.number().int().min(0).max(3).default(0),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const db = await getDb();
+        if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
+        const phoneNumber = normalizeKenyanPhone(input.phoneNumber);
+        const product = await db.product.findFirst({ where: { id: input.productId, productType: "TOKEN", status: "ACTIVE" }, select: { id: true, name: true, price: true, currency: true, tokenQuantity: true } });
+        if (!product || !product.tokenQuantity || product.tokenQuantity <= 0 || product.price == null || Number(product.price) <= 0) throw new TRPCError({ code: "NOT_FOUND", message: "Configured token product not found" });
+        const device = await db.device.findFirst({ where: { id: input.deviceId, customerId: ctx.customer.id }, select: { id: true } });
+        if (!device) throw new TRPCError({ code: "NOT_FOUND", message: "Device not found" });
+        const idempotencyKey = `tokens-${ctx.customer.id}-${device.id}-${product.id}-${randomBytes(16).toString("hex")}`;
+        if (input.paymentMethod === "AIRTIME") {
+          const purchase = await db.$transaction(async tx => {
+            const created = await tx.tokenPurchase.create({ data: { customerId: ctx.customer.id, deviceId: device.id, productId: product.id, idempotencyKey, phone: phoneNumber, tokens: product.tokenQuantity!, amount: product.price!, currency: product.currency, purchaseMethod: "AIRTIME", deliveryStatus: "QUEUED" } });
+            const command = await tx.command.create({ data: { deviceId: device.id, commandType: "BUY_TOKENS", payload: { purchaseId: created.id, tokens: created.tokens, price: Number(created.amount), phoneNumber, simSlot: input.simSlot, paymentMethod: "AIRTIME" } as Prisma.InputJsonValue, expiresAt: null }, select: { id: true } });
+            await tx.tokenPurchase.update({ where: { id: created.id }, data: { commandId: command.id } });
+            return { id: created.id, commandId: command.id, deliveryStatus: "QUEUED" as const, tokens: created.tokens, price: created.amount.toString() };
+          });
+          return { method: "AIRTIME" as const, ...purchase, message: "Airtime token purchase queued for the selected device." };
+        }
+        if (!ENV.payflowApiKey || !ENV.payflowApiSecret || !ENV.payflowPaymentAccountId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Payflow is not configured" });
+        const payment = await db.$transaction(async tx => {
+          const created = await tx.bingwaPayment.create({ data: { customerId: ctx.customer.id, productId: product.id, deviceId: device.id, idempotencyKey, phone: phoneNumber, amount: product.price!, currency: product.currency, status: "CREATED" } });
+          await tx.tokenPurchase.create({ data: { customerId: ctx.customer.id, deviceId: device.id, productId: product.id, paymentId: created.id, idempotencyKey: `${idempotencyKey}-delivery`, phone: phoneNumber, tokens: product.tokenQuantity!, amount: product.price!, currency: product.currency, purchaseMethod: "MPESA", deliveryStatus: "PAYMENT_PENDING" } });
+          return created;
+        });
+        try {
+          const response = await fetch(`${ENV.payflowBaseUrl.replace(/\/$/, "")}/stkpush.php`, { method: "POST", headers: { "X-API-Key": ENV.payflowApiKey, "X-API-Secret": ENV.payflowApiSecret, "Content-Type": "application/json" }, body: JSON.stringify({ payment_account_id: Number(ENV.payflowPaymentAccountId), phone: phoneNumber, amount: Number(product.price), reference: payment.id, description: product.name }) });
+          const result = await response.json() as { success?: boolean; message?: string; checkout_request_id?: string; merchant_request_id?: string; transaction_id?: number | string };
+          if (!response.ok || !result.success || !result.checkout_request_id) throw new Error(result.message || "Payflow rejected the STK Push");
+          await db.bingwaPayment.update({ where: { id: payment.id }, data: { status: "PENDING", checkoutRequestId: result.checkout_request_id, merchantRequestId: result.merchant_request_id, payflowTransactionId: result.transaction_id == null ? null : String(result.transaction_id) } });
+          return { method: "MPESA" as const, paymentId: payment.id, deliveryStatus: "PAYMENT_PENDING" as const, tokens: product.tokenQuantity, price: product.price.toString(), checkoutRequestId: result.checkout_request_id, message: "STK Push sent. Complete payment on your phone." };
+        } catch (error) {
+          await db.bingwaPayment.update({ where: { id: payment.id }, data: { status: "FAILED", failureMessage: error instanceof Error ? error.message : "Payflow request failed" } });
+          await db.tokenPurchase.updateMany({ where: { paymentId: payment.id }, data: { deliveryStatus: "FAILED", failureMessage: "Payflow request failed" } });
+          throw new TRPCError({ code: "BAD_GATEWAY", message: "Unable to start Payflow token payment" });
         }
       }),
     createDeviceTransaction: customerProcedure
@@ -382,9 +453,10 @@ export const appRouter = router({
         if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
         const phoneNumber = normalizeKenyanPhone(input.phoneNumber);
         return db.$transaction(async tx => {
-          const device = await tx.device.findFirst({ where: { id: input.deviceId, customerId: ctx.customer.id }, select: { id: true, status: true } });
+          const device = await tx.device.findFirst({ where: { id: input.deviceId, customerId: ctx.customer.id }, select: { id: true, status: true, lastHeartbeatAt: true } });
           if (!device) throw new TRPCError({ code: "NOT_FOUND", message: "Device not found" });
-          if (device.status !== "online") throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Device is offline. Open BingwaAuto before running a transaction." });
+          const heartbeatAgeMs = device.lastHeartbeatAt ? Date.now() - device.lastHeartbeatAt.getTime() : Number.POSITIVE_INFINITY;
+          if (device.status === "blocked" || heartbeatAgeMs >= 20 * 60 * 1000) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Device is offline. Open BingwaAuto before running a transaction." });
           const plan = await tx.deviceDataPlan.findFirst({ where: { id: input.planId, deviceId: device.id, isActive: true } });
           if (!plan) throw new TRPCError({ code: "NOT_FOUND", message: "Data plan is not available on this device" });
           if (!plan.ussdCode || !plan.price || plan.price.lessThanOrEqualTo(0)) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This Android plan is missing a payable price or USSD code" });
@@ -414,21 +486,24 @@ export const appRouter = router({
               planId: plan.id,
               simSlot: input.simSlot,
             } as Prisma.InputJsonValue,
-            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
           }, select: { id: true, status: true } });
           await tx.auditLog.create({ data: { actorType: "CUSTOMER", actorCustomerId: ctx.customer.id, deviceId: device.id, action: "CUSTOMER_TRANSACTION_QUEUED", metadata: { transactionId: transaction.id, commandId: command.id, planId: plan.id } } });
           return { transaction: { ...transaction, amount: transaction.amount.toString() }, command };
         });
       }),
     enqueueCustomerCommand: customerProcedure
-      .input(z.object({ deviceId: z.number().int().positive(), commandType: z.string().trim().min(1).max(80), payload: z.record(z.string(), z.unknown()).optional() }))
+      .input(z.object({ deviceId: z.number().int().positive(), commandType: z.enum(["QUEUE_PAYMENT", "SYNC_DATA_PLANS", "CHECK_AIRTIME", "START_AUTOMATION", "STOP_AUTOMATION", "EXECUTE_USSD", "BUY_TOKENS"]), payload: z.record(z.string(), z.unknown()).optional() }).superRefine((input, refinement) => {
+        if (input.commandType === "EXECUTE_USSD" && typeof input.payload?.ussdCode !== "string") refinement.addIssue({ code: "custom", message: "EXECUTE_USSD requires ussdCode", path: ["payload", "ussdCode"] });
+        if (input.commandType === "CHECK_AIRTIME" && input.payload?.simSlot !== undefined && typeof input.payload.simSlot !== "number") refinement.addIssue({ code: "custom", message: "simSlot must be numeric", path: ["payload", "simSlot"] });
+      }))
       .mutation(async ({ input, ctx }) => {
         const db = await getDb();
         if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: DATABASE_UNAVAILABLE_ERR_MSG });
         const device = await db.device.findFirst({ where: { id: input.deviceId, customerId: ctx.customer.id }, select: { id: true, status: true } });
         if (!device) throw new TRPCError({ code: "NOT_FOUND", message: "Device not found" });
         if (device.status === "blocked") throw new TRPCError({ code: "FORBIDDEN", message: "This device is revoked" });
-        const command = await db.command.create({ data: { deviceId: device.id, commandType: input.commandType, payload: input.payload as Prisma.InputJsonValue | undefined, expiresAt: new Date(Date.now() + 10 * 60 * 1000) }, select: { id: true, status: true } });
+        const command = await db.command.create({ data: { deviceId: device.id, commandType: input.commandType, payload: input.payload as Prisma.InputJsonValue | undefined, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) }, select: { id: true, status: true } });
         await db.auditLog.create({ data: { actorType: "CUSTOMER", actorCustomerId: ctx.customer.id, deviceId: device.id, action: "CUSTOMER_COMMAND_QUEUED", metadata: { commandType: input.commandType, commandId: command.id } } });
         return command;
       }),
@@ -563,7 +638,7 @@ export const appRouter = router({
       return db.product.findMany({ orderBy: [{ status: "asc" }, { updatedAt: "desc" }] });
     }),
     create: adminProcedure.input(z.object({
-      productType: z.enum(["DEVICE", "SUBSCRIPTION"]),
+      productType: z.enum(["DEVICE", "SUBSCRIPTION", "TOKEN"]),
       name: z.string().trim().min(1).max(160),
       slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(180),
       description: z.string().trim().max(2000).optional(),
@@ -571,6 +646,7 @@ export const appRouter = router({
       currency: z.string().trim().regex(/^[A-Z]{3}$/).default("KES"),
       durationDays: z.number().int().positive().optional(),
       deviceLimit: z.number().int().positive().optional(),
+      tokenQuantity: z.number().int().positive().optional(),
     })).mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");
@@ -584,13 +660,14 @@ export const appRouter = router({
           currency: input.currency,
           durationDays: input.durationDays,
           deviceLimit: input.deviceLimit,
+          tokenQuantity: input.tokenQuantity,
           createdBy: ctx.user.id,
         },
       });
     }),
     update: adminProcedure.input(z.object({
       id: z.string().min(1),
-      productType: z.enum(["DEVICE", "SUBSCRIPTION"]).optional(),
+      productType: z.enum(["DEVICE", "SUBSCRIPTION", "TOKEN"]).optional(),
       name: z.string().trim().min(1).max(160).optional(),
       slug: z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/).max(180).optional(),
       description: z.string().trim().max(2000).nullable().optional(),
@@ -598,6 +675,7 @@ export const appRouter = router({
       currency: z.string().trim().regex(/^[A-Z]{3}$/).optional(),
       durationDays: z.number().int().positive().nullable().optional(),
       deviceLimit: z.number().int().positive().nullable().optional(),
+      tokenQuantity: z.number().int().positive().nullable().optional(),
       status: z.enum(["DRAFT", "ACTIVE", "ARCHIVED"]).optional(),
     })).mutation(async ({ input }) => {
       const db = await getDb();
@@ -616,9 +694,9 @@ export const appRouter = router({
     remove: adminProcedure.input(z.object({ id: z.string().min(1) })).mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");
-      const product = await db.product.findUnique({ where: { id: input.id }, select: { id: true, _count: { select: { subscriptions: true, payments: true, entitlements: true } } } });
+      const product = await db.product.findUnique({ where: { id: input.id }, select: { id: true, _count: { select: { subscriptions: true, payments: true, entitlements: true, tokenPurchases: true } } } });
       if (!product) return { success: false as const, reason: "NOT_FOUND" as const };
-      const used = product._count.subscriptions + product._count.payments + product._count.entitlements;
+      const used = product._count.subscriptions + product._count.payments + product._count.entitlements + product._count.tokenPurchases;
       if (used > 0) return { success: false as const, reason: "HAS_DEPENDENT_RECORDS" as const };
       await db.product.delete({ where: { id: input.id } });
       return { success: true as const };
@@ -637,7 +715,7 @@ export const appRouter = router({
       .input(
         z.object({
           deviceId: z.number().int().positive(),
-          commandType: z.string().min(1).max(80),
+          commandType: z.enum(["QUEUE_PAYMENT", "SYNC_DATA_PLANS", "CHECK_AIRTIME", "START_AUTOMATION", "STOP_AUTOMATION", "EXECUTE_USSD", "BUY_TOKENS"]),
           payload: z.record(z.string(), z.unknown()).optional(),
           expiresAt: z.coerce.date().optional(),
         })
@@ -841,6 +919,15 @@ export const appRouter = router({
         if (!device) return { accepted: false as const, reason: "INVALID_DEVICE_CREDENTIALS" };
         const normalizedStatus = input.status === "COMPLETED" ? "SUCCEEDED" : input.status;
         const updated = await updateDeviceCommandResult(device.id, input.commandId, normalizedStatus, input.resultMessage);
+        if (updated) {
+          const db = await getDb();
+          if (db) {
+            const purchase = await db.tokenPurchase.findUnique({ where: { commandId: input.commandId }, select: { id: true } });
+            if (purchase) {
+              await db.tokenPurchase.update({ where: { id: purchase.id }, data: normalizedStatus === "SUCCEEDED" ? { deliveryStatus: "DELIVERED", deliveredAt: new Date(), failureMessage: null } : normalizedStatus === "FAILED" || normalizedStatus === "EXPIRED" ? { deliveryStatus: "FAILED", failureMessage: input.resultMessage ?? "Android token delivery failed" } : normalizedStatus === "ACKNOWLEDGED" || normalizedStatus === "EXECUTING" ? { deliveryStatus: "DELIVERED" } : {} });
+            }
+          }
+        }
         return { accepted: updated as boolean };
       }),
     heartbeat: publicProcedure
@@ -893,6 +980,7 @@ export const appRouter = router({
         };
         await db.device.update({ where: { id: device.id }, data: deviceUpdate });
         if (input.dataPlans) {
+          await db.deviceDataPlan.updateMany({ where: { deviceId: device.id }, data: { isActive: false } });
           for (const plan of input.dataPlans) {
             await db.deviceDataPlan.upsert({
               where: { deviceId_packageName: { deviceId: device.id, packageName: plan.packageName } },
